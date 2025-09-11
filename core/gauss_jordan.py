@@ -46,13 +46,13 @@ def _a_rref_con_pasos(matriz_aumentada: List[List[Fraction]]) -> Tuple[List[str]
         pasos_matrices.append(
             encabezado_operacion(
                 f"Pivote de la columna C{col+1}: está en F{fila_pivote+1}, C{col+1} "
-                f"(valor actual {_fr(m[fila_pivote][col])})"
+                f"(valor actual: {_fr(m[fila_pivote][col])})"
             )
         )
         
         # Nuevo: si no se requiere permutar ni escalar
         if fila_encontrada == fila_pivote and m[fila_pivote][col] == 1:
-            pasos_matrices.append("Se encontró un pivote correcto; no es necesario permutar ni escalar, se pasa al siguiente pivote.\n")
+            pasos_matrices.append("Se encontró un pivote correcto (1); no es necesario permutar ni escalar, se pasa al siguiente pivote.\n")
 
         # 3) Normalizar pivote a 1 (dividir la fila_pivote por el valor del pivote)
         pivote = m[fila_pivote][col]

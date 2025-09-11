@@ -46,7 +46,7 @@ class BotonGrandeImagen(tk.Frame):
     """Contenedor fijo para forzar el MISMO tamaño visual de ambos botones."""
     def __init__(self, master, texto, imagen, comando,
                  ancho=240, alto=220, **btnstyle):
-        super().__init__(master, width=ancho, height=alto, bg="#ffffff", highlightthickness=0)
+        super().__init__(master, width=ancho, height=alto, bg="#E8C2D3", highlightthickness=0)
         self.pack_propagate(False)
         self._btn = tk.Button(self,
                               text=texto,
@@ -61,18 +61,18 @@ class BotonGrandeImagen(tk.Frame):
 def mostrar_menu():
     root = tk.Tk()
     root.title("Sistema de Ecuaciones — Métodos de Eliminación")
-    root.configure(bg="#ffffff")
+    root.configure(bg="#E8C2D3")
     preparar_ventana(root, usar_maximizada=True)
 
     # ---------- Contenedor central ----------
-    centro = tk.Frame(root, bg="#ffffff")
+    centro = tk.Frame(root, bg="#E8C2D3")
     centro.pack(expand=True)
 
     titulo = tk.Label(
         centro,
         text="Sistema de Ecuaciones — Métodos de Eliminación",
         fg="#0f172a",
-        bg="#ffffff",
+        bg="#E8C2D3",
         font=("Segoe UI", 22, "bold")
     )
     titulo.pack(pady=(0, 6))
@@ -80,15 +80,15 @@ def mostrar_menu():
     subtitulo = tk.Label(
         centro,
         text="Elige un método para resolver tu sistema",
-        fg="#475569",
-        bg="#ffffff",
+        fg="#0f172a",
+        bg="#E8C2D3",
         font=("Segoe UI", 11)
     )
     subtitulo.pack(pady=(0, 20))
 
     # ---------- Imágenes ----------
-    ruta_gauss = _ruta_recurso(os.path.join("imagenes", "black_G.png"))
-    ruta_gj    = _ruta_recurso(os.path.join("imagenes", "black_GJ.png"))
+    ruta_gauss = _ruta_recurso(os.path.join("imagenes", "black_G.png")) #
+    ruta_gj    = _ruta_recurso(os.path.join("imagenes", "black_GJ.png")) #
     img_gauss  = _cargar_y_escalar(ruta_gauss, 180, 120)
     img_gj     = _cargar_y_escalar(ruta_gj,    180, 120)
 
@@ -109,12 +109,12 @@ def mostrar_menu():
         AppGaussJordan(toplevel_parent=root, on_volver=volver_a_menu)
 
     # ---------- Botones centrados ----------
-    fila = tk.Frame(centro, bg="#ffffff")
+    fila = tk.Frame(centro, bg="#E8C2D3")
     fila.pack()
 
     estilo_btn = dict(
-        bg="#f3f4f6",
-        activebackground="#e5e7eb",
+        bg="#D874A3",
+        activebackground="#D874A3",
         fg="#111827",
         activeforeground="#111827",
         relief="raised",
