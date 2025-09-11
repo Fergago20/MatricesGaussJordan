@@ -28,22 +28,30 @@ def _a_rref_con_pasos(matriz_aumentada: List[List[Fraction]]) -> Tuple[List[str]
     pasos_matrices: List[str] = []
 
     for col in range(cols_a):
-        # 1) buscar pivote
+        # 1) Buscar pivote (primer no-cero desde fila_pivote)
         fila_encontrada = None
         for f in range(fila_pivote, filas):
             if m[f][col] != 0:
                 fila_encontrada = f
                 break
         if fila_encontrada is None:
-            continue
+            continue  # columna libre; no hay pivote aquí
 
-        # 2) permutar si es necesario
+        # 2) Permutar si es necesario para traer el pivote a fila_pivote
         if fila_encontrada != fila_pivote:
             m[fila_pivote], m[fila_encontrada] = m[fila_encontrada], m[fila_pivote]
             op = encabezado_operacion(f"Permutar: F{fila_pivote+1} ↔ F{fila_encontrada+1}")
             pasos_matrices.append(op + bloque_matriz(m))
 
-        # 3) normalizar pivote a 1
+        # <<< NUEVO: Anunciar el pivote de esta columna >>>
+        pasos_matrices.append(
+            encabezado_operacion(
+                f"Pivote de la columna C{col+1}: está en F{fila_pivote+1}, C{col+1} "
+                f"(valor actual {_fr(m[fila_pivote][col])})"
+            )
+        )
+
+        # 3) Normalizar pivote a 1
         pivote = m[fila_pivote][col]
         if pivote != 1:
             op = encabezado_operacion(f"F{fila_pivote+1} ← (1/{_fr(pivote)})·F{fila_pivote+1}")
@@ -53,11 +61,11 @@ def _a_rref_con_pasos(matriz_aumentada: List[List[Fraction]]) -> Tuple[List[str]
 
         columnas_pivote.append(col)
 
-        # 4) eliminar arriba y abajo
+        # 4) Eliminar arriba y abajo (hacer ceros en la columna del pivote)
         for r in range(filas):
             if r == fila_pivote or m[r][col] == 0:
                 continue
-            factor = m[r][col]  # pivote ya es 1
+            factor = m[r][col]  # pivote ya es 1 → F_r ← F_r - factor·F_piv
             op = encabezado_operacion(f"F{r+1} ← F{r+1} + ({_fr(-factor)})·F{fila_pivote+1}")
             for c in range(col, cols_a+1):
                 m[r][c] = m[r][c] - factor*m[fila_pivote][c]
@@ -111,7 +119,7 @@ def _solucion_parametrica_desde_rref(rref: List[List[Fraction]], cols_pivote: Li
 def clasificar_y_resolver_gauss_jordan(matriz_aumentada: List[List[Fraction]]) -> Dict[str, Any]:
     """
     Retorna:
-      pasos (solo matrices con operaciones),
+      pasos (solo matrices con operaciones y anuncio de pivotes),
       rref, tipo_solucion ('única' | 'infinita' | 'inconsistente'),
       soluciones (si única), mensaje_tipo, solucion_parametrica (si infinita).
     """
@@ -122,7 +130,7 @@ def clasificar_y_resolver_gauss_jordan(matriz_aumentada: List[List[Fraction]]) -
     rango_ab = _rango_por_forma(rref, incluir_b=True,  nvars=nvars)
 
     resultado = {
-        "pasos": pasos_mat,              # SOLO matrices
+        "pasos": pasos_mat,              # SOLO matrices + anuncios de pivote
         "rref": rref, "tipo_solucion": None,
         "soluciones": None, "mensaje_tipo": "", "solucion_parametrica": None
     }
