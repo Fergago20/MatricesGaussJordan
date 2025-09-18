@@ -1,19 +1,23 @@
-# ui/menu.py
+# ui/menu.py — menú con fondo azul oscuro, botones celestes
 import os
 import tkinter as tk
-
 from soporte import preparar_ventana
 from ui.gauss_app import AppGauss
 from ui.gauss_jordan_app import AppGaussJordan
 
+# ===== Paleta =====
+FONDO_MENU   = "#0F172A"   # azul muy oscuro (fondo principal)
+TEXTO_BLANCO = "#FFFFFF"   # texto general blanco
+CARD_BG      = "#EAF5FF"   # celeste claro para los botones
+CARD_TEXT    = "#6889AA"   # texto de los botones (azul grisáceo)
+CARD_BG_HOV  = "#DDEEFF"   # hover más claro
+BORDE        = "#CBD5E1"
 
 def _ruta_recurso(relpath: str) -> str:
-    base = os.path.dirname(os.path.dirname(__file__))  # raíz del proyecto
+    base = os.path.dirname(os.path.dirname(__file__))
     return os.path.join(base, relpath)
 
-def _cargar_y_escalar(ruta: str, max_w: int = 180, max_h: int = 120):
-    """Carga un PhotoImage y lo reescala (zoom/subsample entero) para que
-    quepa dentro de max_w × max_h. Si no existe, devuelve None."""
+def _cargar_y_escalar(ruta: str, max_w: int = 220, max_h: int = 220) -> tk.PhotoImage | None:
     if not os.path.exists(ruta):
         return None
     try:
@@ -25,111 +29,97 @@ def _cargar_y_escalar(ruta: str, max_w: int = 180, max_h: int = 120):
     if w == 0 or h == 0:
         return img
 
-    # Reducir si se pasa del límite (división entera)
     down = max(w // max_w if w > max_w else 1,
                h // max_h if h > max_h else 1)
     if down > 1:
         img = img.subsample(down, down)
         w, h = img.width(), img.height()
 
-    # Ampliar un poco si quedó muy pequeña (máx ×3)
-    up_w = max(1, min(3, max_w // w))
-    up_h = max(1, min(3, max_h // h))
+    up_w = max(1, min(3, max_w // max(1, w)))
+    up_h = max(1, min(3, max_h // max(1, h)))
     up = max(1, min(up_w, up_h))
     if up > 1:
         img = img.zoom(up, up)
 
     return img
 
-
-class BotonGrandeImagen(tk.Frame):
-    """Contenedor fijo para forzar el MISMO tamaño visual de ambos botones."""
-    def __init__(self, master, texto, imagen, comando,
-                 ancho=240, alto=220, **btnstyle):
-        super().__init__(master, width=ancho, height=alto, bg="#E8C2D3", highlightthickness=0)
+class BotonCard(tk.Frame):
+    """Card con imagen + texto, mismo tamaño."""
+    def __init__(self, master, texto, imagen: tk.PhotoImage | None, comando,
+                 ancho=300, alto=280):
+        super().__init__(master, width=ancho, height=alto, bg=CARD_BG, bd=1, highlightthickness=1)
+        self.configure(highlightbackground=BORDE)
         self.pack_propagate(False)
-        self._btn = tk.Button(self,
-                              text=texto,
-                              image=imagen,
-                              command=comando,
-                              compound="top",
-                              **btnstyle)
-        self._btn.image = imagen  # evitar GC
+
+        self._btn = tk.Button(
+            self, text=texto, image=imagen, compound="top",
+            command=comando, cursor="hand2",
+            bg=CARD_BG, activebackground=CARD_BG_HOV,
+            fg=CARD_TEXT, activeforeground=CARD_TEXT,
+            bd=0, font=("Segoe UI", 12, "bold"), padx=18, pady=14
+        )
+        self._btn.image = imagen
         self._btn.pack(fill="both", expand=True)
 
+        self.bind("<Enter>", lambda _e: self.configure(bg=CARD_BG_HOV))
+        self.bind("<Leave>", lambda _e: self.configure(bg=CARD_BG))
+        for w in (self, self._btn):
+            w.bind("<Enter>", lambda _e, fr=self: fr.configure(bg=CARD_BG_HOV))
+            w.bind("<Leave>", lambda _e, fr=self: fr.configure(bg=CARD_BG))
 
 def mostrar_menu():
     root = tk.Tk()
     root.title("Sistema de Ecuaciones — Métodos de Eliminación")
-    root.configure(bg="#E8C2D3")
+    root.configure(bg=FONDO_MENU)
     preparar_ventana(root, usar_maximizada=True)
 
-    # ---------- Contenedor central ----------
-    centro = tk.Frame(root, bg="#E8C2D3")
+    # Contenedor principal centrado
+    centro = tk.Frame(root, bg=FONDO_MENU)
     centro.pack(expand=True)
 
     titulo = tk.Label(
         centro,
         text="Sistema de Ecuaciones — Métodos de Eliminación",
-        fg="#0f172a",
-        bg="#E8C2D3",
-        font=("Segoe UI", 22, "bold")
+        fg=TEXTO_BLANCO, bg=FONDO_MENU, font=("Segoe UI", 26, "bold")
     )
-    titulo.pack(pady=(0, 6))
+    titulo.pack(pady=(10, 6))
 
     subtitulo = tk.Label(
         centro,
         text="Elige un método para resolver tu sistema",
-        fg="#0f172a",
-        bg="#E8C2D3",
-        font=("Segoe UI", 11)
+        fg=TEXTO_BLANCO, bg=FONDO_MENU, font=("Segoe UI", 12)
     )
-    subtitulo.pack(pady=(0, 20))
+    subtitulo.pack(pady=(0, 24))
 
-    # ---------- Imágenes ----------
-    ruta_gauss = _ruta_recurso(os.path.join("imagenes", "black_G.png")) #
-    ruta_gj    = _ruta_recurso(os.path.join("imagenes", "black_GJ.png")) #
-    img_gauss  = _cargar_y_escalar(ruta_gauss, 180, 120)
-    img_gj     = _cargar_y_escalar(ruta_gj,    180, 120)
+    # Imágenes
+    ruta_gauss = _ruta_recurso(os.path.join("imagenes", "Gauss_Royal.png"))
+    ruta_gj    = _ruta_recurso(os.path.join("imagenes", "GaussJordan_Royal.png"))
+    img_gauss  = _cargar_y_escalar(ruta_gauss, 220, 220)
+    img_gj     = _cargar_y_escalar(ruta_gj,    220, 220)
 
-    # ---------- Acciones ----------
-    def volver_a_menu():
+    # Acciones de navegación
+    def volver_desde_hijas():
         root.deiconify()
-        try:
-            root.state("zoomed")
-        except Exception:
-            pass
+        try: root.state("zoomed")
+        except Exception: pass
 
     def abrir_gauss():
         root.withdraw()
-        AppGauss(toplevel_parent=root, on_volver=volver_a_menu)
+        AppGauss(toplevel_parent=root, on_volver=volver_desde_hijas)
 
-    def abrir_gauss_jordan():
+    def abrir_gj():
         root.withdraw()
-        AppGaussJordan(toplevel_parent=root, on_volver=volver_a_menu)
+        AppGaussJordan(toplevel_parent=root, on_volver=volver_desde_hijas)
 
-    # ---------- Botones centrados ----------
-    fila = tk.Frame(centro, bg="#E8C2D3")
+    # Dos cards centradas
+    fila = tk.Frame(centro, bg=FONDO_MENU)
     fila.pack()
 
-    estilo_btn = dict(
-        bg="#D874A3",
-        activebackground="#D874A3",
-        fg="#111827",
-        activeforeground="#111827",
-        relief="raised",
-        bd=2,
-        cursor="hand2",
-        font=("Segoe UI", 13, "bold"),
-        padx=18,
-        pady=14,
-    )
+    card1 = BotonCard(fila, "Método de Gauss", img_gauss, abrir_gauss)
+    card1.grid(row=0, column=0, padx=28, pady=8)
 
-    BotonGrandeImagen(fila, "Método de Gauss", img_gauss, abrir_gauss, **estilo_btn)\
-        .grid(row=0, column=0, padx=28, pady=12)
-    BotonGrandeImagen(fila, "Método de Gauss-Jordan", img_gj, abrir_gauss_jordan, **estilo_btn)\
-        .grid(row=0, column=1, padx=28, pady=12)
-
+    card2 = BotonCard(fila, "Método de Gauss-Jordan", img_gj, abrir_gj)
+    card2.grid(row=0, column=1, padx=28, pady=8)
 
     root.protocol("WM_DELETE_WINDOW", root.destroy)
     root.mainloop()

@@ -1,4 +1,5 @@
-# ui/gauss_app.py
+# ui/gauss_app.py  (tema azul/celeste)
+import os
 import tkinter as tk
 from tkinter import messagebox
 
@@ -9,18 +10,25 @@ from soporte import (
 )
 from core.gauss import clasificar_y_resolver
 
+# ===== Paleta =====
+COLOR_FONDO      = "#EAF5FF"   # celeste muy claro
+COLOR_TEXTO      = "#6889AA"   # títulos / labels
+COLOR_CAJA_BG    = "#FFFFFF"   # blanco (cajas de texto/listbox)
+COLOR_CAJA_FG    = "#000000"   # negro
+COLOR_SEL        = "#D7E8F9"   # celeste selección
+COLOR_BOTON_BG   = "#0E3A5B"   # azul oscuro (alternativa: "#f4d68e")
+COLOR_BOTON_FG   = "#FFFFFF"   # texto blanco
+COLOR_BOTON_BG_ACT = "#104467" # hover/active
 
 class AppGauss(tk.Toplevel):
-    """Pantalla del método de Gauss (Eliminación) con tema claro."""
+    """Pantalla del método de Gauss (Eliminación) — tema azul/celeste."""
 
     def __init__(self, toplevel_parent=None, on_volver=None):
         super().__init__(master=toplevel_parent)
         self.title("Método de Gauss (Eliminación)")
-        # --- Tema blanco ---
-        self.configure(bg="#ffffff")
+        self.configure(bg=COLOR_FONDO)
         preparar_ventana(self, usar_maximizada=True)
 
-        # callback opcional para botón "Volver al menú"
         self._on_volver = on_volver
 
         # Estado
@@ -32,97 +40,107 @@ class AppGauss(tk.Toplevel):
         self._construir_ui()
         self.generar_plantilla()
 
-        # X cierra toda la app (destruye la raíz)
         self.protocol("WM_DELETE_WINDOW", self._cerrar_toda_la_app)
 
-    # ---------- Construcción de UI ----------
+    # ---------- UI ----------
     def _construir_ui(self):
-        # Paleta clara
-        fondo = "#ffffff"      # fondo general
-        texto = "#111827"      # texto principal
-        bg_caja = "#f8fafc"    # fondo de Text/Listbox
-        fg_caja = "#111827"    # texto en cajas
-        sel_bg = "#e5e7eb"     # selección en listbox
-
         estilo_btn = {
-            "bg": "#f3f4f6", "fg": "#111827",
-            "activebackground": "#e5e7eb", "activeforeground": "#111827",
-            "relief": "raised", "bd": 2, "cursor": "hand2"
+            "bg": COLOR_BOTON_BG, "fg": COLOR_BOTON_FG,
+            "activebackground": COLOR_BOTON_BG_ACT, "activeforeground": COLOR_BOTON_FG,
+            "relief": "raised", "bd": 2, "cursor": "hand2",
+            "font": ("Segoe UI", 10, "bold"), "padx": 10, "pady": 6
         }
 
-        # Barra superior
-        barra = tk.Frame(self, bg=fondo)
-        barra.pack(fill="x", padx=10, pady=(8, 6))
+        raiz = tk.Frame(self, bg=COLOR_FONDO)
+        raiz.pack(fill="both", expand=True)
+        raiz.grid_columnconfigure(0, weight=0)
+        raiz.grid_columnconfigure(1, weight=1)
+        raiz.grid_rowconfigure(0, weight=1)
+        raiz.grid_rowconfigure(1, weight=0)
+        raiz.grid_rowconfigure(2, weight=0)
 
-        tk.Button(barra, text="← Volver al menú", command=self._volver_al_menu, **estilo_btn)\
-            .pack(side="left", padx=(0, 10))
+        izq = tk.Frame(raiz, bg=COLOR_FONDO)
+        izq.grid(row=0, column=0, sticky="nsew", padx=(10, 6), pady=(8, 6))
+        izq.grid_columnconfigure(0, weight=1)
 
-        tk.Label(barra, text="Incógnitas:", fg=texto, bg=fondo).pack(side="left")
-        tk.Spinbox(barra, from_=1, to=12, width=5, textvariable=self.numero_variables)\
-            .pack(side="left", padx=(6, 10))
-        tk.Button(barra, text="Generar plantilla", command=self.generar_plantilla, **estilo_btn)\
+        fila_superior = tk.Frame(izq, bg=COLOR_FONDO)
+        fila_superior.grid(row=0, column=0, sticky="w", pady=(0, 6))
+        tk.Label(fila_superior, text="Incógnitas:", fg=COLOR_TEXTO, bg=COLOR_FONDO,
+                font=("Segoe UI", 10, "bold")).pack(side="left")
+        tk.Spinbox(fila_superior, from_=1, to=12, width=5, textvariable=self.numero_variables,
+                bg=COLOR_CAJA_BG, fg=COLOR_CAJA_FG, justify="right").pack(side="left", padx=(6, 10))
+        tk.Button(fila_superior, text="Generar plantilla", command=self.generar_plantilla, **estilo_btn)\
             .pack(side="left")
-
-        # Panel central
-        panel = tk.Frame(self, bg=fondo)
-        panel.pack(fill="both", expand=True, padx=10, pady=6)
-
-        # Izquierda
-        izq = tk.Frame(panel, bg=fondo)
-        izq.pack(side="left", fill="y", padx=(0, 10))
 
         marco_plant = tk.LabelFrame(
             izq, text="Plantilla de ecuación (coeficientes y término independiente)",
-            fg=texto, bg=fondo
+            fg=COLOR_TEXTO, bg=COLOR_FONDO, font=("Segoe UI", 10, "bold")
         )
-        marco_plant.pack(fill="x", pady=(0, 8))
-        fila_plant = tk.Frame(marco_plant, bg=fondo)
-        fila_plant.pack(fill="x", padx=6, pady=8)
-
-        self.contenedor_plantilla = tk.Frame(fila_plant, bg=fondo)
+        marco_plant.grid(row=1, column=0, sticky="ew", pady=(0, 6))
+        marco_plant.grid_columnconfigure(0, weight=1)
+        fila_plant = tk.Frame(marco_plant, bg=COLOR_FONDO)
+        fila_plant.grid(row=0, column=0, sticky="ew", padx=6, pady=8)
+        self.contenedor_plantilla = tk.Frame(fila_plant, bg=COLOR_FONDO)
         self.contenedor_plantilla.pack(side="left")
-
         tk.Button(fila_plant, text="Agregar ecuación", command=self.agregar_ecuacion, **estilo_btn)\
             .pack(side="left", padx=(12, 0))
 
-        marco_sis = tk.LabelFrame(izq, text="Sistema de ecuaciones", fg=texto, bg=fondo)
-        marco_sis.pack(fill="both", expand=True)
+        marco_sis = tk.LabelFrame(izq, text="Sistema de ecuaciones",
+                                fg=COLOR_TEXTO, bg=COLOR_FONDO, font=("Segoe UI", 10, "bold"))
+        marco_sis.grid(row=2, column=0, sticky="ew")
         self.lista_sistema = tk.Listbox(
-            marco_sis, width=48, height=18,
-            bg=bg_caja, fg=fg_caja, selectbackground=sel_bg
+            marco_sis, width=40, height=10,
+            bg=COLOR_CAJA_BG, fg=COLOR_CAJA_FG,
+            selectbackground=COLOR_SEL, highlightthickness=1
         )
         self.lista_sistema.pack(fill="both", expand=True, padx=6, pady=6)
 
-        fila_btns = tk.Frame(izq, bg=fondo)
-        fila_btns.pack(fill="x", pady=(8, 0))
-        tk.Button(fila_btns, text="Quitar", command=self.quitar_ecuacion, **estilo_btn).pack(side="left", padx=4)
-        tk.Button(fila_btns, text="Limpiar", command=self.limpiar_sistema, **estilo_btn).pack(side="left", padx=4)
-        tk.Button(fila_btns, text="Resolver", command=self.resolver_sistema, **estilo_btn).pack(side="left", padx=4)
+        fila_botones_sis = tk.Frame(izq, bg=COLOR_FONDO)
+        fila_botones_sis.grid(row=3, column=0, sticky="ew", pady=(6, 0))
+        fila_botones_sis.grid_columnconfigure(0, weight=0)
+        fila_botones_sis.grid_columnconfigure(1, weight=1)
+        fila_botones_sis.grid_columnconfigure(2, weight=0)
 
-        # Derecha
-        der = tk.Frame(panel, bg=fondo)
-        der.pack(side="left", fill="both", expand=True)
+        tk.Button(fila_botones_sis, text="Quitar", command=self.quitar_ecuacion, **estilo_btn)\
+            .grid(row=0, column=0, padx=(0, 6))
+        tk.Button(fila_botones_sis, text="Limpiar", command=self.limpiar_sistema, **estilo_btn)\
+            .grid(row=0, column=1, sticky="w")
+        tk.Button(fila_botones_sis, text="Resolver", command=self.resolver_sistema, **estilo_btn)\
+            .grid(row=0, column=2, sticky="e")
 
-        self.marco_proc = tk.LabelFrame(
-            der, text="Procedimiento (Gauss: REF + sustitución hacia atrás)", fg=texto, bg=fondo
-        )
-        self.marco_proc.pack(fill="both", expand=True)
-        self.texto_proc = tk.Text(self.marco_proc, bg=bg_caja, fg=fg_caja)
+        der = tk.Frame(raiz, bg=COLOR_FONDO)
+        der.grid(row=0, column=1, rowspan=1, sticky="nsew", padx=(6, 10), pady=(8, 6))
+        der.grid_columnconfigure(0, weight=1)
+        der.grid_rowconfigure(0, weight=1)
+        der.grid_rowconfigure(1, weight=0)
+
+        self.marco_proc = tk.LabelFrame(der, text="Procedimiento (Gauss: REF + sustitución hacia atrás)",
+                                        fg=COLOR_TEXTO, bg=COLOR_FONDO, font=("Segoe UI", 10, "bold"))
+        self.marco_proc.grid(row=0, column=0, sticky="nsew")
+        self.texto_proc = tk.Text(self.marco_proc, bg=COLOR_CAJA_BG, fg=COLOR_CAJA_FG)
         self.texto_proc.pack(fill="both", expand=True, padx=6, pady=6)
 
-        self.marco_sol = tk.LabelFrame(der, text="Solución", fg=texto, bg=fondo)
-        self.marco_sol.pack(fill="x", pady=(8, 0))
-        self.texto_sol = tk.Text(self.marco_sol, height=8, bg=bg_caja, fg=fg_caja)
+        self.marco_sol = tk.LabelFrame(raiz, text="Solución",
+                                    fg=COLOR_TEXTO, bg=COLOR_FONDO, font=("Segoe UI", 10, "bold"))
+        self.marco_sol.grid(row=1, column=1, sticky="ew", padx=(6, 10))
+        self.texto_sol = tk.Text(self.marco_sol, height=8, bg=COLOR_CAJA_BG, fg=COLOR_CAJA_FG)
         self.texto_sol.pack(fill="x", padx=6, pady=6)
 
         self.btn_convertir = tk.Button(self.marco_sol, text="Mostrar en decimales",
-                                       command=self.convertir_a_decimales, **estilo_btn)
+                                    command=self.convertir_a_decimales, **estilo_btn)
         self.btn_convertir.pack(padx=6, pady=(0, 8))
         self.btn_convertir.pack_forget()
 
-    # ---------- utilidades ----------
+        barra_inf = tk.Frame(raiz, bg=COLOR_FONDO)
+        barra_inf.grid(row=2, column=0, columnspan=2, sticky="ew", padx=10, pady=(0, 8))
+        tk.Button(barra_inf, text="← Volver al menú", command=self._volver_al_menu, **estilo_btn)\
+            .pack(side="left")
+
+
+
+    # ---------- helpers ----------
     def _crear_entry_coef(self, contenedor):
-        e = tk.Entry(contenedor, width=7, justify="right", bg="#ffffff", fg="#111827")
+        e = tk.Entry(contenedor, width=7, justify="right", bg=COLOR_CAJA_BG, fg=COLOR_CAJA_FG)
         vcmd = (e.register(patron_valido_para_coeficiente), "%P")
         e.config(validate="key", validatecommand=vcmd)
         e.insert(0, "0")
@@ -141,14 +159,14 @@ class AppGauss(tk.Toplevel):
             self.numero_variables.set(1)
 
         for i in range(n):
-            tk.Label(self.contenedor_plantilla, text=f"x{i+1} =", fg="#111827",
-                     bg=self.contenedor_plantilla["bg"]).pack(side="left", padx=(4, 2))
+            tk.Label(self.contenedor_plantilla, text=f"x{i+1} =", fg=COLOR_TEXTO,
+                     bg=self.contenedor_plantilla["bg"], font=("Segoe UI", 10, "bold")).pack(side="left", padx=(4, 2))
             entrada = self._crear_entry_coef(self.contenedor_plantilla)
             entrada.pack(side="left", padx=(0, 6))
             self.entradas_coeficientes.append(entrada)
 
-        tk.Label(self.contenedor_plantilla, text="= ", fg="#111827",
-                 bg=self.contenedor_plantilla["bg"]).pack(side="left")
+        tk.Label(self.contenedor_plantilla, text="= ", fg=COLOR_TEXTO,
+                 bg=self.contenedor_plantilla["bg"], font=("Segoe UI", 10, "bold")).pack(side="left")
         entrada_b = self._crear_entry_coef(self.contenedor_plantilla)
         entrada_b.pack(side="left", padx=(0, 6))
         self.entradas_coeficientes.append(entrada_b)
@@ -156,15 +174,13 @@ class AppGauss(tk.Toplevel):
     def _leer_fila_plantilla(self):
         return [a_fraccion(c.get()) for c in self.entradas_coeficientes]
 
-    # ---------- cierre ----------
+    # ---------- cierre / navegación ----------
     def _cerrar_toda_la_app(self):
-        """Cierra completamente la aplicación al pulsar la X en esta ventana."""
-        raiz = self.master  # la raíz Tk (oculta con withdraw() desde el menú)
+        raiz = self.master
         if isinstance(raiz, tk.Tk):
             raiz.destroy()
 
     def _volver_al_menu(self):
-        """Botón opcional: vuelve al menú; la X cierra todo."""
         try:
             self.destroy()
         finally:
@@ -174,22 +190,16 @@ class AppGauss(tk.Toplevel):
     # ---------- acciones ----------
     def agregar_ecuacion(self):
         fila = self._leer_fila_plantilla()
-        coeficientes = fila[:-1]
-        termino_independiente = fila[-1]
-
-        # Bloquear 0 = 0 (no aporta información)
-        if all(c == 0 for c in coeficientes) and termino_independiente == 0:
+        coeficientes = fila[:-1]; b = fila[-1]
+        if all(c == 0 for c in coeficientes) and b == 0:
             messagebox.showwarning("Ecuación inválida", "La ecuación es 0 = 0; no será agregada.")
             for c in self.entradas_coeficientes:
                 c.delete(0, "end"); c.insert(0, "0")
             if self.entradas_coeficientes:
                 self.entradas_coeficientes[0].focus_set()
             return
-
         self.sistema_actual.append(fila)
         self.lista_sistema.insert("end", formatear_ecuacion_linea(fila))
-
-        # Limpiar plantilla y enfocar para la siguiente
         for c in self.entradas_coeficientes:
             c.delete(0, "end"); c.insert(0, "0")
         if self.entradas_coeficientes:
@@ -216,17 +226,12 @@ class AppGauss(tk.Toplevel):
             messagebox.showerror("Error", "Agrega al menos dos ecuaciones para resolver.")
             return
 
-        # Procedimiento
         self.texto_proc.delete("1.0", "end")
-        self.texto_proc.insert(
-            "end",
-            matriz_alineada_con_titulo("Matriz inicial (A|b):", self.sistema_actual, con_barra=True)
-        )
+        self.texto_proc.insert("end", matriz_alineada_con_titulo("Matriz inicial (A|b):", self.sistema_actual, con_barra=True))
+
         resultado = clasificar_y_resolver(self.sistema_actual)
-        # 'pasos' ya viene con matrices alineadas y sustitución hacia atrás
         self.texto_proc.insert("end", "\n".join(resultado["pasos"]))
 
-        # Solución
         self.texto_sol.delete("1.0", "end")
         self.texto_sol.insert("end", resultado["mensaje_tipo"] + "\n\n")
 
@@ -241,8 +246,7 @@ class AppGauss(tk.Toplevel):
                 self.btn_convertir.config(text="Mostrar en decimales")
                 self.btn_convertir.pack(padx=6, pady=(0, 8))
         elif resultado["tipo_solucion"] == "infinita":
-            # Si tu core ya imprime la paramétrica en procedimiento, puedes poner un mensaje breve
-            self.texto_sol.insert("end", "El sistema tiene infinitas soluciones (ver procedimiento).\n")
+            self.texto_sol.insert("end", "El sistema tiene infinitas soluciones.\n")
 
     def convertir_a_decimales(self):
         if not self.soluciones_guardadas:

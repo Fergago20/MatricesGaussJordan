@@ -14,73 +14,62 @@ def _fr(fr: Fraction) -> str:
 
 def _a_rref_con_pasos(matriz_aumentada: List[List[Fraction]]) -> Tuple[List[str], List[List[Fraction]], List[int]]:
     """
-    Lleva [A|b] a RREF (Gauss-Jordan) mostrando SOLO matrices.
-    NO imprime la matriz inicial (la UI ya lo hace).
-    Devuelve: (pasos_matrices, matriz_final_rref, columnas_pivote)
+    Lleva [A|b] a RREF (Gauss-Jordan) mostrando SOLO operaciones que cambian la matriz.
+    (Sin mensajes de pivote si no hay permuta/normalización/eliminación).
+    Devuelve: pasos_matrices, rref, columnas_pivote.
     """
-    m = _copiar(matriz_aumentada)                  # Trabajar sobre una copia
-    filas = len(m)                                  # m = número de filas
-    cols_a = len(m[0]) - 1                          # columnas de A (última es b)
-    fila_pivote = 0                                 # fila activa donde colocaremos el pivote
-    columnas_pivote: List[int] = []                 # índices de columnas que quedan con pivote
+    m = _copiar(matriz_aumentada)
+    filas = len(m)
+    cols_a = len(m[0]) - 1
+    fila_pivote = 0
+    columnas_pivote: List[int] = []
 
-    pasos_matrices: List[str] = []                  # acumulador de texto de pasos
+    pasos_matrices: List[str] = []
 
-    for col in range(cols_a):                       # recorrer columnas de A
-        # 1) Buscar pivote (primer elemento no-cero desde fila_pivote hacia abajo)
+    for col in range(cols_a):
+        # 1) Buscar pivote (primer no-cero desde fila_pivote)
         fila_encontrada = None
         for f in range(fila_pivote, filas):
             if m[f][col] != 0:
                 fila_encontrada = f
                 break
         if fila_encontrada is None:
-            continue                                # columna sin pivote (col libre)
+            continue  # columna libre; no hay pivote aquí
 
-        # 2) Permutar si el pivote no está en la fila_pivote
+        # 2) Permutar si es necesario (solo mostramos si realmente permutamos)
         if fila_encontrada != fila_pivote:
             m[fila_pivote], m[fila_encontrada] = m[fila_encontrada], m[fila_pivote]
             op = encabezado_operacion(f"Permutar: F{fila_pivote+1} ↔ F{fila_encontrada+1}")
-            pasos_matrices.append(op + bloque_matriz(m))  # mostrar matriz tras permutar
+            pasos_matrices.append(op + bloque_matriz(m))
 
-        # Anunciar dónde está el pivote de esta columna (antes de normalizar)
-        pasos_matrices.append(
-            encabezado_operacion(
-                f"Pivote de la columna C{col+1}: está en F{fila_pivote+1}, C{col+1} "
-                f"(valor actual: {_fr(m[fila_pivote][col])})"
-            )
-        )
-        
-        # Nuevo: si no se requiere permutar ni escalar
-        if fila_encontrada == fila_pivote and m[fila_pivote][col] == 1:
-            pasos_matrices.append("Se encontró un pivote correcto (1); no es necesario permutar ni escalar, se pasa al siguiente pivote.\n")
-
-        # 3) Normalizar pivote a 1 (dividir la fila_pivote por el valor del pivote)
+        # 3) Normalizar pivote a 1 (solo mostramos si realmente normalizamos)
         pivote = m[fila_pivote][col]
         if pivote != 1:
             op = encabezado_operacion(f"F{fila_pivote+1} ← (1/{_fr(pivote)})·F{fila_pivote+1}")
-            for c in range(col, cols_a+1):          # desde la columna del pivote hasta b
+            for c in range(col, cols_a+1):
                 m[fila_pivote][c] = m[fila_pivote][c] / pivote
-            pasos_matrices.append(op + bloque_matriz(m))  # mostrar resultado de normalizar
+            pasos_matrices.append(op + bloque_matriz(m))
 
-        columnas_pivote.append(col)                 # registrar columna con pivote
+        columnas_pivote.append(col)
 
         # 4) Eliminar arriba y abajo (hacer ceros en la columna del pivote)
         for r in range(filas):
             if r == fila_pivote or m[r][col] == 0:
                 continue
-            factor = m[r][col]                      # factor a eliminar (pivote ya es 1)
+            factor = m[r][col]  # pivote ya es 1
             op = encabezado_operacion(f"F{r+1} ← F{r+1} + ({_fr(-factor)})·F{fila_pivote+1}")
             for c in range(col, cols_a+1):
                 m[r][c] = m[r][c] - factor * m[fila_pivote][c]
-            pasos_matrices.append(op + bloque_matriz(m))  # mostrar tras eliminación
+            pasos_matrices.append(op + bloque_matriz(m))
 
-        fila_pivote += 1                            # avanzar a la siguiente fila para el próximo pivote
+        fila_pivote += 1
         if fila_pivote == filas:
-            break                                   # no hay más filas para pivotes
+            break
 
-    # Matriz final (RREF)
+    # Matriz final
     pasos_matrices.append(matriz_alineada_con_titulo("Matriz final (RREF):", m, con_barra=True))
     return pasos_matrices, m, columnas_pivote
+
 
 def _rango_por_forma(m: List[List[Fraction]], incluir_b: bool, nvars: int) -> int:
     cols = nvars + (1 if incluir_b else 0)         # considerar o no la columna b
@@ -145,7 +134,7 @@ def clasificar_y_resolver_gauss_jordan(matriz_aumentada: List[List[Fraction]]) -
 
     if rango_a < rango_ab:                                                   # inconsistente
         resultado["tipo_solucion"] = "inconsistente"
-        resultado["mensaje_tipo"] = "Sin solución (sistema incompatible): aparece una fila [0 … 0 | c≠0] en RREF."
+        resultado["mensaje_tipo"] = "Sin solución: aparece una fila [0 … 0 | c≠0] en RREF."
         return resultado
 
     if rango_a == rango_ab == nvars:                                         # única
@@ -154,12 +143,12 @@ def clasificar_y_resolver_gauss_jordan(matriz_aumentada: List[List[Fraction]]) -
             x[col] = rref[i][nvars]
         resultado["tipo_solucion"] = "única"
         resultado["soluciones"] = x
-        resultado["mensaje_tipo"] = "Solución única (sistema compatible determinado)."
+        resultado["mensaje_tipo"] = "Solución única."
         return resultado
 
     # rango_a == rango_ab < nvars → infinitas (paramétrica)
     lineas, _ = _solucion_parametrica_desde_rref(rref, cols_pivote, nvars)
     resultado["tipo_solucion"] = "infinita"
-    resultado["mensaje_tipo"] = "Infinitas soluciones (sistema compatible indeterminado)."
+    resultado["mensaje_tipo"] = "Infinitas soluciones."
     resultado["solucion_parametrica"] = lineas
     return resultado
