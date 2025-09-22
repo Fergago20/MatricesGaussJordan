@@ -1,4 +1,3 @@
-# core/formato_matrices.py
 from fractions import Fraction
 
 # ============================
@@ -65,20 +64,24 @@ def formatear_detalle_operacion(expresiones):
 
 
 def construir_procedimiento(A_raw, B_raw, operador):
-    """Construye el bloque de procedimiento mostrando A y B tal como fueron ingresadas."""
+    """Construye el bloque de procedimiento mostrando A y B alineadas."""
     filas_A, cols_A = len(A_raw), len(A_raw[0])
     filas_B, cols_B = len(B_raw), len(B_raw[0])
 
-    # Encabezado
+    # Formatear matrices A y B con alineación
+    texto_A = formatear_matriz(A_raw, corchetes=True).split("\n")
+    texto_B = formatear_matriz(B_raw, corchetes=True).split("\n")
+
     procedimiento = []
-    encabezado = "Matriz A:".ljust(20) + "Matriz B:"
+    encabezado = "Matriz A:".ljust(25) + "Matriz B:"
     procedimiento.append(encabezado)
 
-    # Imprimir matrices con el operador centrado
-    for i in range(filas_A):
-        filaA = "[ " + " ".join(str(x) for x in A_raw[i]) + " ]"
-        filaB = "[ " + " ".join(str(x) for x in B_raw[i]) + " ]" if i < filas_B else ""
-        if i == filas_A // 2:
+    # Emparejar filas de A y B
+    max_filas = max(filas_A, filas_B)
+    for i in range(max_filas):
+        filaA = texto_A[i] if i < len(texto_A) else " " * len(texto_A[0])
+        filaB = texto_B[i] if i < len(texto_B) else ""
+        if i == max_filas // 2:
             procedimiento.append(f"{filaA}   {operador}   {filaB}")
         else:
             procedimiento.append(f"{filaA}       {filaB}")

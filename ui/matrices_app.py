@@ -6,6 +6,7 @@ from soporte import (
     patron_valido_para_coeficiente, matriz_alineada_con_titulo,
     hay_fracciones_en_lista
 )
+from core.lector_matriz import limpiar_matriz
 from core import operaciones_matrices as opm
 from tkinter import messagebox
 from core.formato_matrices import formatear_matriz
@@ -161,7 +162,7 @@ class AppMatrices(tk.Toplevel):
                 command=self._volver_al_menu, **estilo_btn).pack(side="left")
 
     def _usar_resultado_en_A(self):
-        """Copiar el resultado en la Matriz A y limpiar B, procedimiento y resultado."""
+        """Copiar el resultado en la Matriz A (ajustada a NxN) y limpiar B, procedimiento y resultado."""
         if not hasattr(self, "resultado") or not self.resultado:
             return  # no hacer nada si no existe resultado válido
 
@@ -169,22 +170,32 @@ class AppMatrices(tk.Toplevel):
         if not isinstance(self.resultado, list) or not isinstance(self.resultado[0], list):
             return
 
-        # Ajustar dimensiones de A al resultado
-        self.filas_A, self.columnas_A = len(self.resultado), len(self.resultado[0])
+        filas_res, cols_res = len(self.resultado), len(self.resultado[0])
+        n = max(filas_res, cols_res)  # tamaño cuadrado necesario
+
+        # Ajustar dimensiones de A a NxN
+        self.filas_A, self.columnas_A = n, n
         self._generar_matriz("A")
 
-        # Copiar valores del resultado en A
-        for i in range(self.filas_A):
-            for j in range(self.columnas_A):
+        # Copiar valores del resultado en la esquina superior izquierda
+        for i in range(filas_res):
+            for j in range(cols_res):
                 val = self.resultado[i][j]
                 self.matriz_A[i][j].delete(0, "end")
                 self.matriz_A[i][j].insert(0, str(val))
 
-        # Limpiar matriz B (manteniendo su tamaño actual)
+        # Dejar vacías las demás celdas de A
+        for i in range(filas_res, n):
+            for j in range(n):
+                self.matriz_A[i][j].delete(0, "end")
+        for i in range(filas_res):
+            for j in range(cols_res, n):
+                self.matriz_A[i][j].delete(0, "end")
+
+        # Limpiar matriz B (manteniendo su tamaño actual, pero vacía)
         for fila in self.matriz_B:
             for e in fila:
                 e.delete(0, "end")
-                e.insert(0, "0")
 
         # Limpiar cuadros de procedimiento y resultado
         self.texto_proc.delete("1.0", "end")
@@ -194,6 +205,33 @@ class AppMatrices(tk.Toplevel):
         self.btn_convertir.pack_forget()
         self.btn_encadenar.pack_forget()
 
+
+    def _limpiar_matriz(self, cual):
+        """Limpia completamente la matriz A o B (deja todas sus celdas vacías)."""
+        if cual == "A":
+            for fila in self.matriz_A:
+                for e in fila:
+                    e.delete(0, "end")
+        else:  # Matriz B
+            for fila in self.matriz_B:
+                for e in fila:
+                    e.delete(0, "end")
+                    
+    def _limpiar_todo(self):
+        """Deja la ventana limpia, como recién abierta."""
+        # Restablecer tamaño inicial
+        self.filas_A = self.columnas_A = 3
+        self.filas_B = self.columnas_B = 3
+        self._generar_matriz("A")
+        self._generar_matriz("B")
+
+        # Vaciar texto de procedimiento y resultado
+        self.texto_proc.delete("1.0", "end")
+        self.texto_res.delete("1.0", "end")
+
+        # Ocultar botones
+        self.btn_convertir.pack_forget()
+        self.btn_encadenar.pack_forget()
 
     # ----------------- Helpers UI -----------------
     def _generar_matriz(self, cual):
@@ -221,29 +259,25 @@ class AppMatrices(tk.Toplevel):
             self.matriz_B = entradas
 
     def _leer_matriz(self, cual):
-        """Convierte los Entry de la matriz en lista de listas de Fraction."""
         if cual == "A":
-            return [[a_fraccion(e.get()) for e in fila] for fila in self.matriz_A]
+            return limpiar_matriz(self.matriz_A)
         else:
-            return [[a_fraccion(e.get()) for e in fila] for fila in self.matriz_B]
+            return limpiar_matriz(self.matriz_B)
 
 
     def _crear_entry(self, parent) -> tk.Entry:
-        """Crea un Entry validado para números/fracciones."""
         e = tk.Entry(parent, width=5, justify="center",
                     bg=COLOR_CAJA_BG, fg=COLOR_CAJA_FG)
 
-        # validar mientras escribe
         vcmd = (e.register(patron_valido_para_coeficiente), "%P")
         e.config(validate="key", validatecommand=vcmd)
 
-        # valor inicial
-        e.insert(0, "0")
+        # Inicia vacío (no "0")
+        e.insert(0, "")
 
         # seleccionar todo al hacer clic
         e.bind("<FocusIn>", lambda _ev: e.select_range(0, "end"))
-        # si queda vacío al salir, poner 0
-        e.bind("<FocusOut>", lambda _ev: (e.insert(0, "0") if e.get().strip() == "" else None))
+
         return e
     
     def _mostrar_resultado(self, matriz):
@@ -279,25 +313,35 @@ class AppMatrices(tk.Toplevel):
 
     def _ajustar_matriz(self, cual, delta):
         if cual == "A":
-            self.filas_A = max(1, self.filas_A + delta)
-            self.columnas_A = max(1, self.columnas_A + delta)
+            old_filas, old_cols = self.filas_A, self.columnas_A
+            old_vals = [[e.get() for e in fila] for fila in self.matriz_A]
+
+            # nuevo tamaño
+            self.filas_A = max(1, old_filas + delta)
+            self.columnas_A = max(1, old_cols + delta)
             self._generar_matriz("A")
-        else:
-            self.filas_B = max(1, self.filas_B + delta)
-            self.columnas_B = max(1, self.columnas_B + delta)
+
+            # restaurar valores que caben en la nueva grilla
+            for i in range(min(old_filas, self.filas_A)):
+                for j in range(min(old_cols, self.columnas_A)):
+                    self.matriz_A[i][j].delete(0, "end")
+                    self.matriz_A[i][j].insert(0, old_vals[i][j])
+
+        else:  # para matriz B
+            old_filas, old_cols = self.filas_B, self.columnas_B
+            old_vals = [[e.get() for e in fila] for fila in self.matriz_B]
+
+            # nuevo tamaño
+            self.filas_B = max(1, old_filas + delta)
+            self.columnas_B = max(1, old_cols + delta)
             self._generar_matriz("B")
 
-    def _limpiar_matriz(self, cual):
-        if cual == "A":
-            for fila in self.matriz_A:
-                for e in fila:
-                    e.delete(0, "end")
-                    e.insert(0, "0")
-        else:
-            for fila in self.matriz_B:
-                for e in fila:
-                    e.delete(0, "end")
-                    e.insert(0, "0")
+            # restaurar valores que caben en la nueva grilla
+            for i in range(min(old_filas, self.filas_B)):
+                for j in range(min(old_cols, self.columnas_B)):
+                    self.matriz_B[i][j].delete(0, "end")
+                    self.matriz_B[i][j].insert(0, old_vals[i][j])
+
 
     def _intercambiar(self):
         # Leer contenidos actuales
