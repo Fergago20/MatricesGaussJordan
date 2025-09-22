@@ -109,7 +109,7 @@ def multiplicar_con_pasos(A_raw, B_raw):
                 b_val = B_raw[k][j]
                 sumandos.append(f"{envolver_valor(str(a_val))}·{envolver_valor(str(b_val))}")
                 suma_total += convertir_a_fraccion(str(a_val)) * convertir_a_fraccion(str(b_val))
-            fila_exp.append(" + ".join(sumandos))
+            fila_exp.append(f"({' + '.join(sumandos)})")
             fila_res.append(suma_total)
         expresiones.append(fila_exp)
         resultado.append(fila_res)
