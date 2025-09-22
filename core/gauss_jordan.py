@@ -37,7 +37,7 @@ def _a_rref_con_pasos(matriz_aumentada: List[List[Fraction]]) -> Tuple[List[str]
             continue  # columna libre; no hay pivote aquí
 
         # 2) Permutar si es necesario (solo mostramos si realmente permutamos)
-        if fila_encontrada != fila_pivote:
+        if fila_encontrada != fila_pivote: #donde debería ir el pivote (fila_pivote).
             m[fila_pivote], m[fila_encontrada] = m[fila_encontrada], m[fila_pivote]
             op = encabezado_operacion(f"Permutar: F{fila_pivote+1} ↔ F{fila_encontrada+1}")
             pasos_matrices.append(op + bloque_matriz(m))
@@ -49,7 +49,6 @@ def _a_rref_con_pasos(matriz_aumentada: List[List[Fraction]]) -> Tuple[List[str]
             for c in range(col, cols_a+1):
                 m[fila_pivote][c] = m[fila_pivote][c] / pivote
             pasos_matrices.append(op + bloque_matriz(m))
-
         columnas_pivote.append(col)
 
         # 4) Eliminar arriba y abajo (hacer ceros en la columna del pivote)
@@ -66,7 +65,7 @@ def _a_rref_con_pasos(matriz_aumentada: List[List[Fraction]]) -> Tuple[List[str]
         if fila_pivote == filas:
             break
 
-    # Matriz final
+    # Matriz final 
     pasos_matrices.append(matriz_alineada_con_titulo("Matriz final (RREF):", m, con_barra=True))
     return pasos_matrices, m, columnas_pivote
 

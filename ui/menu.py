@@ -4,6 +4,7 @@ import tkinter as tk
 from soporte import preparar_ventana
 from ui.gauss_app import AppGauss
 from ui.gauss_jordan_app import AppGaussJordan
+from ui.matrices_app import AppMatrices   # ← este será tu nuevo módulo
 
 # ===== Paleta =====
 FONDO_MENU   = "#0F172A"   # azul muy oscuro (fondo principal)
@@ -79,14 +80,14 @@ def mostrar_menu():
 
     titulo = tk.Label(
         centro,
-        text="Sistema de Ecuaciones — Métodos de Eliminación",
+        text="Sistemas de Ecuaciones y Operaciones con Matrices",
         fg=TEXTO_BLANCO, bg=FONDO_MENU, font=("Segoe UI", 26, "bold")
     )
     titulo.pack(pady=(10, 6))
 
     subtitulo = tk.Label(
         centro,
-        text="Elige un método para resolver tu sistema",
+        text="Resuelve sistemas de ecuaciones por métodos de Gauss o Gauss-Jordan y aplica operaciones básicas con matrices.",
         fg=TEXTO_BLANCO, bg=FONDO_MENU, font=("Segoe UI", 12)
     )
     subtitulo.pack(pady=(0, 24))
@@ -94,8 +95,11 @@ def mostrar_menu():
     # Imágenes
     ruta_gauss = _ruta_recurso(os.path.join("imagenes", "Gauss_Royal.png"))
     ruta_gj    = _ruta_recurso(os.path.join("imagenes", "GaussJordan_Royal.png"))
+    ruta_mat   = _ruta_recurso(os.path.join("imagenes", "OperacionesMatrices.png"))
+
     img_gauss  = _cargar_y_escalar(ruta_gauss, 220, 220)
     img_gj     = _cargar_y_escalar(ruta_gj,    220, 220)
+    img_mat    = _cargar_y_escalar(ruta_mat,   220, 220)
 
     # Acciones de navegación
     def volver_desde_hijas():
@@ -111,7 +115,11 @@ def mostrar_menu():
         root.withdraw()
         AppGaussJordan(toplevel_parent=root, on_volver=volver_desde_hijas)
 
-    # Dos cards centradas
+    def abrir_matrices():
+        root.withdraw()
+        AppMatrices(toplevel_parent=root, on_volver=volver_desde_hijas)
+
+    # Fila de cards
     fila = tk.Frame(centro, bg=FONDO_MENU)
     fila.pack()
 
@@ -120,6 +128,9 @@ def mostrar_menu():
 
     card2 = BotonCard(fila, "Método de Gauss-Jordan", img_gj, abrir_gj)
     card2.grid(row=0, column=1, padx=28, pady=8)
+
+    card3 = BotonCard(fila, "Operaciones con Matrices", img_mat, abrir_matrices)
+    card3.grid(row=0, column=2, padx=28, pady=8)
 
     root.protocol("WM_DELETE_WINDOW", root.destroy)
     root.mainloop()
