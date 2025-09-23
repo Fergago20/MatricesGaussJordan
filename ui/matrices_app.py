@@ -116,6 +116,8 @@ class AppMatrices(tk.Toplevel):
         tk.Button(fila_ops, text="A × B", command=self._op_mult, **estilo_btn).grid(row=0, column=0, padx=6)
         tk.Button(fila_ops, text="A + B", command=self._op_suma, **estilo_btn).grid(row=0, column=1, padx=6)
         tk.Button(fila_ops, text="A - B", command=self._op_resta, **estilo_btn).grid(row=0, column=2, padx=6)
+        tk.Button(fila_ops, text="Limpiar", command=self._limpiar_todo, **estilo_btn).grid(row=0, column=3, padx=6)
+        tk.Button(fila_ops, text="Encadenar", command=self._encadenar, **estilo_btn).grid(row=0, column=4, padx=6)
 
         # Procedimiento y resultado
         fila_resultados = tk.Frame(centro, bg=COLOR_FONDO)
@@ -135,21 +137,50 @@ class AppMatrices(tk.Toplevel):
         self.texto_res = tk.Text(marco_res, height=12, bg=COLOR_CAJA_BG, fg=COLOR_CAJA_FG)
         self.texto_res.pack(fill="both", expand=True, padx=6, pady=6)
 
-    # ---------- NUEVO: aplicar tamaños ----------
+        tk.Button(raiz, text="Volver al menú", command=self._volver_al_menu, **estilo_btn)\
+            .pack(pady=(0, 10))
+        
+     # ---------- Ajuste de aplicar tamaños ----------
     def _aplicar_tamanos(self):
         try:
-            self.filas_A = max(1, int(self.ent_filas_A.get()))
-            self.columnas_A = max(1, int(self.ent_cols_A.get()))
-            self.filas_B = max(1, int(self.ent_filas_B.get()))
-            self.columnas_B = max(1, int(self.ent_cols_B.get()))
+            fA, cA = int(self.ent_filas_A.get()), int(self.ent_cols_A.get())
+            fB, cB = int(self.ent_filas_B.get()), int(self.ent_cols_B.get())
+            if fA <= 0 or cA <= 0 or fB <= 0 or cB <= 0:
+                raise ValueError
+            self.filas_A, self.columnas_A, self.filas_B, self.columnas_B = fA, cA, fB, cB
         except ValueError:
-            self._mostrar_error("Introduce solo números enteros positivos para los tamaños.")
+            self._mostrar_error("Introduce solo números enteros positivos mayores que cero para los tamaños.")
+            self._limpiar_todo()
             return
-
         self._generar_matriz("A")
         self._generar_matriz("B")
 
-    # ----------------- Operaciones -----------------
+    #operatividad
+
+    def _limpiar_todo(self):
+        for matriz in (self.matriz_A, self.matriz_B):
+            for fila in matriz:
+                for e in fila:
+                    e.delete(0, "end")
+        self.texto_proc.delete("1.0", "end")
+        self.texto_res.delete("1.0", "end")
+        self.resultado = None
+
+    def _encadenar(self):
+        if not hasattr(self, "resultado") or self.resultado is None:
+            self._mostrar_error("No hay resultado para encadenar.")
+            return
+        # Ajustar matriz A al tamaño del resultado
+        self.filas_A = len(self.resultado)
+        self.columnas_A = len(self.resultado[0]) if self.resultado else 1
+        self._generar_matriz("A")
+        # Copiar valores
+        for i in range(self.filas_A):
+            for j in range(self.columnas_A):
+                self.matriz_A[i][j].insert(0, str(self.resultado[i][j]))
+    
+# ----------------- Operaciones -----------------
+
     def _op_suma(self):
         A, B = self._leer_matriz("A"), self._leer_matriz("B")
         if len(A) != len(B) or len(A[0]) != len(B[0]):
