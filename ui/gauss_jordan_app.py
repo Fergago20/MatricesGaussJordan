@@ -1,0 +1,276 @@
+# ui/gauss_jordan_app.py  (tema azul/celeste)
+import os
+import tkinter as tk
+from tkinter import messagebox
+
+from soporte import (
+    a_fraccion, fraccion_a_str, hay_fracciones_en_lista,
+    formatear_ecuacion_linea, matriz_alineada_con_titulo,
+    patron_valido_para_coeficiente, preparar_ventana
+)
+from core.gauss_jordan import clasificar_y_resolver_gauss_jordan
+
+# ===== Paleta =====
+COLOR_FONDO      = "#EAF5FF"
+COLOR_TEXTO      = "#6889AA"
+COLOR_CAJA_BG    = "#FFFFFF"
+COLOR_CAJA_FG    = "#000000"
+COLOR_SEL        = "#D7E8F9"
+COLOR_BOTON_BG   = "#0E3A5B"     # alternativa: "#f4d68e"
+COLOR_BOTON_FG   = "#FFFFFF"     # si usas "#f4d68e", cambia a negro
+COLOR_BOTON_BG_ACT = "#104467"
+
+class AppGaussJordan(tk.Toplevel):
+    """Pantalla del método de Gauss-Jordan (RREF) — tema azul/celeste."""
+
+    def __init__(self, toplevel_parent=None, on_volver=None):
+        super().__init__(master=toplevel_parent)
+        self.title("Método de Gauss-Jordan")
+        self.configure(bg=COLOR_FONDO)
+        preparar_ventana(self, usar_maximizada=True)
+
+        self._on_volver = on_volver
+
+        # Estado
+        self.numero_variables = tk.IntVar(value=1)
+        self.entradas_coeficientes = []
+        self.sistema_actual = []
+        self.soluciones_guardadas = None
+
+        self._construir_ui()
+        self.generar_plantilla()
+
+        self.protocol("WM_DELETE_WINDOW", self._cerrar_toda_la_app)
+
+    # ---------- UI ----------
+    def _construir_ui(self):
+        estilo_btn = {
+            "bg": COLOR_BOTON_BG, "fg": COLOR_BOTON_FG,
+            "activebackground": COLOR_BOTON_BG_ACT, "activeforeground": COLOR_BOTON_FG,
+            "relief": "raised", "bd": 2, "cursor": "hand2",
+            "font": ("Segoe UI", 10, "bold"), "padx": 10, "pady": 6
+        }
+
+        # ========= CONTENEDOR RAÍZ CON GRID (2 columnas) =========
+        raiz = tk.Frame(self, bg=COLOR_FONDO)
+        raiz.pack(fill="both", expand=True)
+        raiz.grid_columnconfigure(0, weight=0)  # columna izquierda (panel estrecho)
+        raiz.grid_columnconfigure(1, weight=1)  # columna derecha (panel amplio)
+        raiz.grid_rowconfigure(0, weight=1)    # fila 0 crece (proc)
+        raiz.grid_rowconfigure(1, weight=0)    # fila 1 fija (solución)
+        raiz.grid_rowconfigure(2, weight=0)    # fila 2 fija (barra inferior)
+
+        # ========= PANEL IZQUIERDO =========
+        izq = tk.Frame(raiz, bg=COLOR_FONDO)
+        izq.grid(row=0, column=0, sticky="nsew", padx=(10, 6), pady=(8, 6))
+        izq.grid_columnconfigure(0, weight=1)
+
+        # -- fila A: Incógnitas + Generar plantilla
+        fila_superior = tk.Frame(izq, bg=COLOR_FONDO)
+        fila_superior.grid(row=0, column=0, sticky="w", pady=(0, 6))
+        tk.Label(fila_superior, text="Incógnitas:", fg=COLOR_TEXTO, bg=COLOR_FONDO,
+                font=("Segoe UI", 10, "bold")).pack(side="left")
+        tk.Spinbox(fila_superior, from_=1, to=12, width=5, textvariable=self.numero_variables,
+                bg=COLOR_CAJA_BG, fg=COLOR_CAJA_FG, justify="right").pack(side="left", padx=(6, 10))
+        tk.Button(fila_superior, text="Generar plantilla", command=self.generar_plantilla, **estilo_btn)\
+            .pack(side="left")
+
+        # -- fila B: Plantilla + Agregar ecuación
+        marco_plant = tk.LabelFrame(
+            izq, text="Plantilla de ecuación (coeficientes y término independiente)",
+            fg=COLOR_TEXTO, bg=COLOR_FONDO, font=("Segoe UI", 10, "bold")
+        )
+        marco_plant.grid(row=1, column=0, sticky="ew", pady=(0, 6))
+        marco_plant.grid_columnconfigure(0, weight=1)
+        fila_plant = tk.Frame(marco_plant, bg=COLOR_FONDO)
+        fila_plant.grid(row=0, column=0, sticky="ew", padx=6, pady=8)
+        self.contenedor_plantilla = tk.Frame(fila_plant, bg=COLOR_FONDO)
+        self.contenedor_plantilla.pack(side="left")
+        tk.Button(fila_plant, text="Agregar ecuación", command=self.agregar_ecuacion, **estilo_btn)\
+            .pack(side="left", padx=(12, 0))
+
+        # -- fila C: Sistema de ecuaciones (listbox MÁS CORTO)
+        marco_sis = tk.LabelFrame(izq, text="Sistema de ecuaciones",
+                                fg=COLOR_TEXTO, bg=COLOR_FONDO, font=("Segoe UI", 10, "bold"))
+        marco_sis.grid(row=2, column=0, sticky="ew")
+        self.lista_sistema = tk.Listbox(
+            marco_sis, width=40, height=10,   # << altura menor
+            bg=COLOR_CAJA_BG, fg=COLOR_CAJA_FG,
+            selectbackground=COLOR_SEL, highlightthickness=1
+        )
+        self.lista_sistema.pack(fill="both", expand=True, padx=6, pady=6)
+
+        # -- fila D: Botones bajo el listbox (Quitar/Limpiar IZQ, Resolver a la DERECHA)
+        fila_botones_sis = tk.Frame(izq, bg=COLOR_FONDO)
+        fila_botones_sis.grid(row=3, column=0, sticky="ew", pady=(6, 0))
+        fila_botones_sis.grid_columnconfigure(0, weight=0)
+        fila_botones_sis.grid_columnconfigure(1, weight=1)  # separador elástico
+        fila_botones_sis.grid_columnconfigure(2, weight=0)
+
+        tk.Button(fila_botones_sis, text="Quitar", command=self.quitar_ecuacion, **estilo_btn)\
+            .grid(row=0, column=0, padx=(0, 6))
+        tk.Button(fila_botones_sis, text="Limpiar", command=self.limpiar_sistema, **estilo_btn)\
+            .grid(row=0, column=1, sticky="w")
+        tk.Button(fila_botones_sis, text="Resolver", command=self.resolver_sistema, **estilo_btn)\
+            .grid(row=0, column=2, sticky="e")
+
+        # ========= PANEL DERECHO (Procedimiento arriba, Solución abajo) =========
+        der = tk.Frame(raiz, bg=COLOR_FONDO)
+        der.grid(row=0, column=1, rowspan=1, sticky="nsew", padx=(6, 10), pady=(8, 6))
+        der.grid_columnconfigure(0, weight=1)
+        der.grid_rowconfigure(0, weight=1)  # procedimiento crece
+        der.grid_rowconfigure(1, weight=0)  # solución fija
+
+        self.marco_proc = tk.LabelFrame(der, text="Procedimiento (Gauss-Jordan: RREF)",
+                                        fg=COLOR_TEXTO, bg=COLOR_FONDO, font=("Segoe UI", 10, "bold"))
+        self.marco_proc.grid(row=0, column=0, sticky="nsew")
+        self.texto_proc = tk.Text(self.marco_proc, bg=COLOR_CAJA_BG, fg=COLOR_CAJA_FG)
+        self.texto_proc.pack(fill="both", expand=True, padx=6, pady=6)
+
+        self.marco_sol = tk.LabelFrame(raiz, text="Solución",
+                                    fg=COLOR_TEXTO, bg=COLOR_FONDO, font=("Segoe UI", 10, "bold"))
+        self.marco_sol.grid(row=1, column=1, sticky="ew", padx=(6, 10))
+        self.texto_sol = tk.Text(self.marco_sol, height=8, bg=COLOR_CAJA_BG, fg=COLOR_CAJA_FG)
+        self.texto_sol.pack(fill="x", padx=6, pady=6)
+
+        self.btn_convertir = tk.Button(self.marco_sol, text="Mostrar en decimales",
+                                    command=self.convertir_a_decimales, **estilo_btn)
+        self.btn_convertir.pack(padx=6, pady=(0, 8))
+        self.btn_convertir.pack_forget()
+
+        # ========= BARRA INFERIOR (Volver al menú) =========
+        barra_inf = tk.Frame(raiz, bg=COLOR_FONDO)
+        barra_inf.grid(row=2, column=0, columnspan=2, sticky="ew", padx=10, pady=(0, 8))
+        tk.Button(barra_inf, text="← Volver al menú", command=self._volver_al_menu, **estilo_btn)\
+            .pack(side="left")
+
+
+    # ---------- plantilla ----------
+    def _crear_entry_coef(self, contenedor):
+        e = tk.Entry(contenedor, width=7, justify="right", bg=COLOR_CAJA_BG, fg=COLOR_CAJA_FG)
+        vcmd = (e.register(patron_valido_para_coeficiente), "%P")
+        e.config(validate="key", validatecommand=vcmd)
+        e.insert(0, "0")
+        e.bind("<FocusIn>", lambda _ev: e.select_range(0, "end"))
+        e.bind("<FocusOut>", lambda _ev: (e.insert(0, "0") if e.get().strip() == "" else None))
+        return e
+
+    def generar_plantilla(self):
+        for w in self.contenedor_plantilla.winfo_children():
+            w.destroy()
+        self.entradas_coeficientes.clear()
+
+        n = self.numero_variables.get()
+        if n < 1:
+            n = 1
+            self.numero_variables.set(1)
+
+        for i in range(n):
+            tk.Label(self.contenedor_plantilla, text=f"x{i+1} =", fg=COLOR_TEXTO,
+                     bg=self.contenedor_plantilla["bg"], font=("Segoe UI", 10, "bold")).pack(side="left", padx=(4, 2))
+            entrada = self._crear_entry_coef(self.contenedor_plantilla)
+            entrada.pack(side="left", padx=(0, 6))
+            self.entradas_coeficientes.append(entrada)
+
+        tk.Label(self.contenedor_plantilla, text="= ", fg=COLOR_TEXTO,
+                 bg=self.contenedor_plantilla["bg"], font=("Segoe UI", 10, "bold")).pack(side="left")
+        entrada_b = self._crear_entry_coef(self.contenedor_plantilla)
+        entrada_b.pack(side="left", padx=(0, 6))
+        self.entradas_coeficientes.append(entrada_b)
+
+    def _leer_fila_plantilla(self):
+        return [a_fraccion(c.get()) for c in self.entradas_coeficientes]
+
+    # ---------- cierre / navegación ----------
+    def _cerrar_toda_la_app(self):
+        raiz = self.master
+        if isinstance(raiz, tk.Tk):
+            raiz.destroy()
+
+    def _volver_al_menu(self):
+        try:
+            self.destroy()
+        finally:
+            if callable(self._on_volver):
+                self._on_volver()
+
+    # ---------- acciones ----------
+    def agregar_ecuacion(self):
+        fila = self._leer_fila_plantilla()
+        coefs, b = fila[:-1], fila[-1]
+        if all(c == 0 for c in coefs) and b == 0:
+            messagebox.showwarning("Ecuación inválida", "La ecuación es 0 = 0; no será agregada.")
+            for c in self.entradas_coeficientes:
+                c.delete(0, "end"); c.insert(0, "0")
+            if self.entradas_coeficientes:
+                self.entradas_coeficientes[0].focus_set()
+            return
+
+        self.sistema_actual.append(fila)
+        self.lista_sistema.insert("end", formatear_ecuacion_linea(fila))
+
+        for c in self.entradas_coeficientes:
+            c.delete(0, "end"); c.insert(0, "0")
+        if self.entradas_coeficientes:
+            self.entradas_coeficientes[0].focus_set()
+
+    def quitar_ecuacion(self):
+        sel = self.lista_sistema.curselection()
+        if not sel:
+            return
+        idx = sel[0]
+        self.lista_sistema.delete(idx)
+        self.sistema_actual.pop(idx)
+
+    def limpiar_sistema(self):
+        self.lista_sistema.delete(0, "end")
+        self.sistema_actual.clear()
+        self.texto_proc.delete("1.0", "end")
+        self.texto_sol.delete("1.0", "end")
+        self.btn_convertir.pack_forget()
+        self.soluciones_guardadas = None
+
+    def resolver_sistema(self):
+        if len(self.sistema_actual) < 2:
+            messagebox.showerror("Error", "Agrega al menos dos ecuaciones para resolver.")
+            return
+
+        self.texto_proc.delete("1.0", "end")
+        self.texto_proc.insert("end", matriz_alineada_con_titulo("Matriz inicial (A|b):", self.sistema_actual, con_barra=True))
+
+        resultado = clasificar_y_resolver_gauss_jordan(self.sistema_actual)
+        self.texto_proc.insert("end", "".join(resultado["pasos"]))
+
+        self.texto_sol.delete("1.0", "end")
+        self.texto_sol.insert("end", resultado["mensaje_tipo"] + "\n\n")
+
+        self.soluciones_guardadas = None
+        self.btn_convertir.pack_forget()
+
+        tipo = resultado["tipo_solucion"]
+        if tipo == "única":
+            self.soluciones_guardadas = resultado["soluciones"]
+            for i, v in enumerate(self.soluciones_guardadas, start=1):
+                self.texto_sol.insert("end", f"x{i} = {fraccion_a_str(v)}\n")
+            if hay_fracciones_en_lista(self.soluciones_guardadas):
+                self.btn_convertir.config(text="Mostrar en decimales")
+                self.btn_convertir.pack(padx=6, pady=(0, 8))
+        elif tipo == "infinita":
+            for linea in (resultado.get("solucion_parametrica") or []):
+                self.texto_sol.insert("end", linea + "\n")
+
+    def convertir_a_decimales(self):
+        if not self.soluciones_guardadas:
+            return
+        t = self.btn_convertir.cget("text")
+        self.texto_sol.delete("1.0", "end")
+        if t.startswith("Mostrar en decimales"):
+            self.texto_sol.insert("end", "Solución única (decimales):\n\n")
+            for i, v in enumerate(self.soluciones_guardadas, start=1):
+                self.texto_sol.insert("end", f"x{i} = {float(v)}\n")
+            self.btn_convertir.config(text="Ver fracciones")
+        else:
+            self.texto_sol.insert("end", "Solución única (fracciones):\n\n")
+            for i, v in enumerate(self.soluciones_guardadas, start=1):
+                self.texto_sol.insert("end", f"x{i} = {fraccion_a_str(v)}\n")
+            self.btn_convertir.config(text="Mostrar en decimales")
