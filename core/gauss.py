@@ -1,108 +1,107 @@
 # core/gauss.py
 from fractions import Fraction
 from typing import List, Tuple, Dict, Any
-from soporte import (
-    matriz_alineada_con_titulo, encabezado_operacion,
-    bloque_matriz, fraccion_a_str
-)
+from soporte.formato_matrices import matriz_alineada_con_titulo
+from soporte.validaciones import fraccion_a_str
 
-def _copiar(m):
-    return [fila.copy() for fila in m]
+# =====================================================
+#     FUNCIONES AUXILIARES INTERNAS
+# =====================================================
+
+def _copiar(matriz):
+    """Devuelve una copia profunda de la matriz."""
+    return [fila.copy() for fila in matriz]
+
 
 def _fr(fr: Fraction) -> str:
-    # Fraction → "a/b" o entero
+    """Convierte una fracción a texto legible (entero o a/b)."""
     return fraccion_a_str(fr)
+
 
 def _a_ref_con_pasos(matriz_aumentada: List[List[Fraction]]) -> Tuple[List[str], List[List[Fraction]], List[int]]:
     """
-    Lleva [A|b] a REF (Gauss) mostrando SOLO operaciones que cambian la matriz:
-      - Permutar filas (si ocurre)
-      - Eliminaciones debajo del pivote
-    No imprime anuncios de pivote si no hay cambios.
-    Devuelve: (pasos_matrices, ref, columnas_pivote)
+    Lleva una matriz aumentada [A|b] a su forma escalonada (REF)
+    mostrando solo las operaciones que modifican la matriz:
+    - Permutar filas (si ocurre)
+    - Eliminaciones debajo del pivote
     """
     m = _copiar(matriz_aumentada)
     filas = len(m)
-    cols_a = len(m[0]) - 1
+    columnas_a = len(m[0]) - 1
     fila_pivote = 0
     columnas_pivote: List[int] = []
     pasos: List[str] = []
 
-    for col in range(cols_a):
-        # 1) Buscar pivote (primer no-cero desde fila_pivote)
+    for col in range(columnas_a):
+        # Buscar el pivote (primer no cero desde fila_pivote)
         fila_encontrada = None
         for f in range(fila_pivote, filas):
             if m[f][col] != 0:
                 fila_encontrada = f
                 break
         if fila_encontrada is None:
-            continue  # columna libre
+            continue  # columna libre, sin pivote
 
-        # 2) Permutar si es necesario (solo si realmente permutamos)
+        # Permutar si es necesario
         if fila_encontrada != fila_pivote:
             m[fila_pivote], m[fila_encontrada] = m[fila_encontrada], m[fila_pivote]
-            op = encabezado_operacion(f"Permutar: F{fila_pivote+1} ↔ F{fila_encontrada+1}")
-            pasos.append(op + bloque_matriz(m))
+            pasos.append(f"\nPermutar filas: F{fila_pivote+1} ↔ F{fila_encontrada+1}")
+            pasos.append(matriz_alineada_con_titulo("", m, con_barra=True))
 
         columnas_pivote.append(col)
         pivote = m[fila_pivote][col]
 
-        # 3) Eliminar DEBAJO del pivote (Gauss clásico)
+        # Eliminar debajo del pivote (Gauss clásico)
         for r in range(fila_pivote + 1, filas):
             if m[r][col] == 0:
                 continue
             factor = m[r][col] / pivote
-            # F_r ← F_r + (-factor)·F_piv
-            op = encabezado_operacion(f"F{r+1} ← F{r+1} + ({_fr(-factor)})·F{fila_pivote+1}")
-            for c in range(col, cols_a + 1):  # hasta b inclusive
+            pasos.append(f"\nOperación: F{r+1} ← F{r+1} + ({_fr(-factor)})·F{fila_pivote+1}")
+            for c in range(col, columnas_a + 1):  # hasta b inclusive
                 m[r][c] = m[r][c] - factor * m[fila_pivote][c]
-            pasos.append(op + bloque_matriz(m))
+            pasos.append(matriz_alineada_con_titulo("", m, con_barra=True))
 
         fila_pivote += 1
         if fila_pivote == filas:
             break
 
-    # Mostrar la REF final
     pasos.append(matriz_alineada_con_titulo("Matriz en forma escalonada (REF):", m, con_barra=True))
     return pasos, m, columnas_pivote
 
 
 def _rango_por_forma(m: List[List[Fraction]], incluir_b: bool, nvars: int) -> int:
-    cols = nvars + (1 if incluir_b else 0)
-    r = 0
+    """Calcula el rango de una matriz, con o sin la columna aumentada."""
+    columnas = nvars + (1 if incluir_b else 0)
+    rango = 0
     for fila in m:
-        if any(val != 0 for val in fila[:cols]):
-            r += 1
-    return r
+        if any(val != 0 for val in fila[:columnas]):
+            rango += 1
+    return rango
 
 
 def _sustitucion_hacia_atras(ref: List[List[Fraction]]) -> Tuple[List[str], List[Fraction]]:
-    """
-    Lee x_n, x_{n-1}, … desde la REF (asumiendo sistema determinado).
-    Devuelve (pasos_texto, solucion).
-    """
+    """Aplica sustitución hacia atrás (back-substitution) para hallar las incógnitas."""
     filas = len(ref)
     nvars = len(ref[0]) - 1
     x = [Fraction(0, 1) for _ in range(nvars)]
-    pasos: List[str] = [encabezado_operacion("Sustitución hacia atrás")]
+    pasos: List[str] = ["\n--- Sustitución hacia atrás ---"]
 
-    # Buscar últimas filas no nulas para determinar cuántas ecuaciones útiles hay
+    # Buscar la última fila útil
     idx_fila = filas - 1
     while idx_fila >= 0 and all(ref[idx_fila][j] == 0 for j in range(nvars)):
         idx_fila -= 1
 
     # Recorremos hacia arriba
     for i in range(idx_fila, -1, -1):
-        # hallar primera columna no nula (posible pivote en esta fila)
         col_piv = None
         for j in range(nvars):
             if ref[i][j] != 0:
                 col_piv = j
                 break
         if col_piv is None:
-            continue  # fila toda cero → ignórese
+            continue
 
-        # b_i - sum(a_ij * x_j) con j>col_piv
+        # Calcular la suma de términos a la derecha del pivote
         suma = Fraction(0, 1)
         for j in range(col_piv + 1, nvars):
             if ref[i][j] != 0:
@@ -110,42 +109,48 @@ def _sustitucion_hacia_atras(ref: List[List[Fraction]]) -> Tuple[List[str], List
 
         ai = ref[i][col_piv]
         bi = ref[i][nvars]
-        # xi = (bi - suma)/ai
         numerador = bi - suma
         xi = numerador / ai
         x[col_piv] = xi
 
-        # Documentar paso
-        term_sum = " + ".join(f"{_fr(ref[i][j])}·x{j+1}" for j in range(col_piv+1, nvars) if ref[i][j] != 0)
+        # Describir el paso
+        term_sum = " + ".join(f"({_fr(ref[i][j])})·x{j+1}" for j in range(col_piv+1, nvars) if ref[i][j] != 0)
         if term_sum == "":
-            detalle = f"x{col_piv+1} = {_fr(bi)}/{_fr(ai)} = {_fr(xi)}"
+            # Solo hay un pivote y un término independiente
+            detalle = f"x{col_piv+1} = ({_fr(bi)}) / ({_fr(ai)}) = {_fr(xi)}"
         else:
-            detalle = f"x{col_piv+1} = ({_fr(bi)} - ({term_sum})) / {_fr(ai)} = {_fr(xi)}"
-        pasos.append(detalle + "\n")
-
+            # Hay varios términos en la fila
+            detalle = f"x{col_piv+1} = ({_fr(bi)} - ({term_sum})) / ({_fr(ai)}) = {_fr(xi)}"
+        pasos.append(detalle)
     return pasos, x
 
+# =====================================================
+#     FUNCIÓN PRINCIPAL: GAUSS CON CLASIFICACIÓN
+# =====================================================
 
 def clasificar_y_resolver(matriz_aumentada: List[List[Fraction]]) -> Dict[str, Any]:
     """
-    Gauss (REF + sustitución hacia atrás) con registro de SOLO operaciones que cambian la matriz.
-    Retorna dict con:
-      - pasos: lista de strings (procedimiento + REF + sustitución)
-      - ref: matriz REF
-      - tipo_solucion: 'única' | 'infinita' | 'inconsistente'
-      - soluciones: lista Fraction si única
-      - mensaje_tipo: texto explicativo
-      - solucion_parametrica: None (para paramétricas usar Gauss-Jordan)
+    Resuelve un sistema lineal usando el método de Gauss (REF + sustitución).
+    Devuelve:
+      - pasos: lista de texto con el procedimiento
+      - ref: matriz en forma escalonada
+      - tipo_solucion: 'única', 'infinita' o 'inconsistente'
+      - soluciones: lista de fracciones si es única
+      - mensaje_tipo: explicación textual
     """
-    pasos_ref, ref, cols_piv = _a_ref_con_pasos(matriz_aumentada)
+    pasos_ref, ref, columnas_pivote = _a_ref_con_pasos(matriz_aumentada)
     nvars = len(matriz_aumentada[0]) - 1
 
-    rango_a  = _rango_por_forma(ref, incluir_b=False, nvars=nvars)
-    rango_ab = _rango_por_forma(ref, incluir_b=True,  nvars=nvars)
+    rango_a = _rango_por_forma(ref, incluir_b=False, nvars=nvars)
+    rango_ab = _rango_por_forma(ref, incluir_b=True, nvars=nvars)
 
     resultado = {
-        "pasos": [], "ref": ref, "tipo_solucion": None,
-        "soluciones": None, "mensaje_tipo": "", "solucion_parametrica": None
+        "pasos": [],
+        "ref": ref,
+        "tipo_solucion": None,
+        "soluciones": None,
+        "mensaje_tipo": "",
+        "solucion_parametrica": None
     }
     resultado["pasos"].extend(pasos_ref)
 
@@ -156,13 +161,11 @@ def clasificar_y_resolver(matriz_aumentada: List[List[Fraction]]) -> Dict[str, A
         return resultado
 
     if rango_a < nvars:
-        # Para soluciones infinitas recomendamos Gauss-Jordan,
-        # aquí solo declaramos el tipo.
         resultado["tipo_solucion"] = "infinita"
-        resultado["mensaje_tipo"] = "Infinitas soluciones. Usa Gauss-Jordan para la forma paramétrica."
+        resultado["mensaje_tipo"] = "Usa Gauss-Jordan para obtener la forma paramétrica."
         return resultado
 
-    # Caso determinado: sustitución hacia atrás
+    # Caso determinado
     pasos_sust, soluciones = _sustitucion_hacia_atras(ref)
     resultado["pasos"].extend(pasos_sust)
     resultado["tipo_solucion"] = "única"
