@@ -260,6 +260,7 @@ class AppResolverSistemas(tk.Toplevel):
         fila = [a_fraccion(v) for v in fila_textos]
         coeficientes, b = fila[:-1], fila[-1]
 
+        # Evitar ecuaciones nulas
         if all(c == 0 for c in coeficientes) and b == 0:
             messagebox.showwarning("Ecuación inválida", "La ecuación es 0 = 0; no será agregada.")
             for c in self.entradas_coeficientes:
@@ -267,16 +268,28 @@ class AppResolverSistemas(tk.Toplevel):
                 c.insert(0, "0")
             return
 
+        # Guardar la ecuación internamente
         self.sistema_actual.append(fila)
-        # Mostrar en texto legible
-        ecuacion_texto = " + ".join(
-            f"{c if c != 0 else 0}x{i+1}" for i, c in enumerate(coeficientes) if c != 0
-        )
+
+        partes = []
+        for i, c in enumerate(coeficientes):
+            if c == 0:
+                continue
+            signo = " + " if c > 0 and partes else (" - " if c < 0 else "")
+            coef_abs = abs(c)
+            if coef_abs == 1:
+                partes.append(f"{signo}x{i+1}")
+            else:
+                partes.append(f"{signo}{coef_abs}x{i+1}")
+
+        ecuacion_texto = "".join(partes) if partes else "0"
         self.lista_sistema.insert("end", f"{ecuacion_texto} = {b}")
 
+        # Limpiar entradas
         for c in self.entradas_coeficientes:
             c.delete(0, "end")
             c.insert(0, "0")
+
 
     def quitar_ecuacion(self):
         sel = self.lista_sistema.curselection()
