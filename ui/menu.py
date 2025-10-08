@@ -5,6 +5,7 @@ from ui.componentes import BotonCard
 from ui.estilos import FONDO_MENU, TEXTO_BLANCO, FUENTE_TITULO, FUENTE_SUBTITULO
 from ui.resolver_sistemas_app import AppResolverSistemas   # ✅ nuevo archivo unificado
 from ui.matrices_app import AppMatrices
+from ui.vector import AppVectores
 
 
 def mostrar_menu():
@@ -34,6 +35,7 @@ def mostrar_menu():
     # --- IMÁGENES ---
     img_resolver = cargar_y_escalar(ruta_recurso(os.path.join("imagenes", "gauss_gaussjordan.png")))  # ✅ nueva imagen
     img_mat = cargar_y_escalar(ruta_recurso(os.path.join("imagenes", "OperacionesMatrices.png")))
+    img_vectores = cargar_y_escalar(ruta_recurso(os.path.join("imagenes", "Vectores.png")))
 
     # --- ACCIONES ---
     def volver_desde_hijas():
@@ -59,6 +61,13 @@ def mostrar_menu():
         img_mat,
         lambda: abrir_modulo(AppMatrices)
     ).grid(row=0, column=1, padx=28, pady=8)
+
+    BotonCard(
+        fila,
+        "Dependencia de Vectores",
+        img_vectores,
+        lambda: abrir_modulo(AppVectores)
+    ).grid(row=0, column=2, padx=28, pady=8)
 
     def abrir_modulo(AppClase):
         root.withdraw()

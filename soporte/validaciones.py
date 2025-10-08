@@ -104,3 +104,19 @@ def matriz_esta_vacia(matriz):
             if e.get().strip() != "":
                 return False
     return True
+
+# =====================================================
+#   VALIDACIÓN PARA ESCALARES (ENTEROS, FRACCIONES, DECIMALES)
+# =====================================================
+
+PATRON_ESCALAR = re.compile(r"^-?\d*(?:\.\d*)?(?:/\d*)?$")
+
+def patron_valido_para_escalar(texto: str) -> bool:
+    """
+    Valida que el texto ingresado en el campo Escalar sea:
+    - Entero (2, -5)
+    - Decimal (3.14, -0.5)
+    - Fracción (3/4, -2/5)
+    Permite vacío temporalmente mientras el usuario escribe.
+    """
+    return texto == "" or bool(PATRON_ESCALAR.fullmatch(texto))
