@@ -100,15 +100,25 @@ def _rango_por_forma(m: List[List[Fraction]], incluir_b: bool, nvars: int) -> in
             rango += 1
     return rango
 
-
 def _solucion_parametrica_desde_rref(rref: List[List[Fraction]], columnas_pivote: List[int], nvars: int):
     """
     Construye la solución paramétrica:
       - Variables libres quedan como parámetros.
       - Variables pivote se expresan en función de las libres.
+      - Se omite el coeficiente 1 o -1 en las variables libres para mejor legibilidad.
+      - Se evita imprimir '+' al inicio cuando el primer término es positivo.
     """
     libres = [j for j in range(nvars) if j not in columnas_pivote]
     fila_de_pivote = {col: i for i, col in enumerate(columnas_pivote)}
+
+    def _formatear_coeficiente(coef, var_index):
+        """Devuelve un término limpio como 'x3', '-x2', '2x4', etc."""
+        if coef == 1:
+            return f"x{var_index}"
+        elif coef == -1:
+            return f"-x{var_index}"
+        else:
+            return f"{coef}x{var_index}"
 
     lineas = []
     for var in range(nvars):
@@ -120,22 +130,35 @@ def _solucion_parametrica_desde_rref(rref: List[List[Fraction]], columnas_pivote
         b = rref[fila][nvars]
         partes = []
 
+        # Agregar término constante (si existe)
         if b != 0:
-            partes.append(f"{_fr(b)}")
+            partes.append(f"{b}")
 
+        # Términos con variables libres
         for j in libres:
             coef = rref[fila][j]
             if coef == 0:
                 continue
-            signo = " - " if coef > 0 else " + "
-            partes.append(f"{signo}{_fr(abs(coef))}x{j+1}")
 
-        if not partes:
-            partes = ["0"]
+            # si es positivo y no hay partes previas, no se agrega "+"
+            if coef < 0:
+                signo = " + "
+            else:
+                signo = " - "
 
-        lineas.append(f"x{var+1} = {''.join(partes)}")
+            partes.append(f"{signo}{_formatear_coeficiente(abs(coef), j+1)}")
+
+        # Limpiar posible signo inicial redundante
+        expresion = "".join(partes).strip()
+        if expresion.startswith("+ "):
+            expresion = expresion[2:]
+
+        if not expresion:
+            expresion = "0"
+
+        lineas.append(f"x{var+1} = {expresion}")
+
     return lineas, libres
-
 
 # =====================================================
 #     FUNCIÓN PRINCIPAL: GAUSS-JORDAN COMPLETO

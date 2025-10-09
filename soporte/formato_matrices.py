@@ -7,13 +7,29 @@ from fractions import Fraction
 # =====================================================
 
 def convertir_a_fraccion(valor):
-    """Convierte un valor (str o numérico) a Fraction de forma segura."""
+    """
+    Convierte un valor (str o numérico) a Fraction sin perder precisión.
+    Soporta enteros, decimales y fracciones.
+    """
     try:
         if isinstance(valor, Fraction):
             return valor
-        if "/" in str(valor):
+        if isinstance(valor, (int, float)):
             return Fraction(valor)
-        return Fraction(str(float(valor)))
+        if not isinstance(valor, str):
+            return Fraction(0)
+
+        valor = valor.strip()
+        if valor in ("", "-"):
+            return Fraction(0)
+
+        if "/" in valor:
+            num, den = valor.split("/", 1)
+            num = num.strip() or "0"
+            den = den.strip() or "1"
+            return Fraction(int(num), int(den))
+
+        return Fraction(valor)
     except Exception:
         return Fraction(0)
     
@@ -118,7 +134,7 @@ def formatear_ecuacion_linea(fila):
     return f"{''.join(partes)} = {b}"
 
 
-def matriz_alineada_con_titulo(matriz, titulo="", con_barra=False):
+def matriz_alineada_con_titulo(titulo, matriz, con_barra=False):
     """Devuelve una matriz alineada con un título arriba."""
     texto = f"{titulo}\n" if titulo else ""
     if con_barra:
@@ -129,6 +145,7 @@ def matriz_alineada_con_titulo(matriz, titulo="", con_barra=False):
     else:
         texto += formatear_matriz(matriz)
     return texto + "\n"
+
 
 def resultado_en_fracciones(matriz):
     """Formatea la matriz resultado en fracciones."""
