@@ -33,6 +33,10 @@ def convertir_a_fraccion(valor):
     except Exception:
         return Fraction(0)
     
+def a_fraccion(valor):
+    """Atajo para convertir a Fraction, compatible con los módulos core."""
+    return convertir_a_fraccion(valor)
+    
 def envolver_valor(valor: str) -> str:
     """
     Envuelve el valor entre paréntesis si es negativo, fracción o decimal.
@@ -156,3 +160,16 @@ def resultado_en_decimales(matriz, decimales=4):
     """Formatea la matriz resultado en decimales con alineación."""
     matriz_dec = [[f"{float(x):.{decimales}f}" for x in fila] for fila in matriz]
     return formatear_matriz(matriz_dec, corchetes=True)
+
+# =====================================================
+#   FORMATO DE PASOS ESPECÍFICOS (GAUSS–JORDAN / INVERSA)
+# =====================================================
+def formatear_pasos_inversa_gauss_jordan(M_original, pasos, A_inv):
+    """
+    Construye el texto completo de pasos del método Gauss–Jordan.
+    """
+    texto = "Matriz A original:\n" + formatear_matriz(M_original) + "\n\n"
+    texto += "Desarrollo por el método de Gauss–Jordan:\n"
+    texto += "\n".join(pasos) + "\n\n"
+    texto += "Matriz inversa obtenida (A⁻¹):\n" + formatear_matriz(A_inv) + "\n"
+    return texto

@@ -1,5 +1,6 @@
 from fractions import Fraction
 from core.operaciones_escalar import construir_procedimiento_con_escalares
+from soporte.formato_matrices import formatear_matriz, construir_procedimiento
 from soporte.formato_matrices import (
     convertir_a_fraccion,
     envolver_valor,
@@ -116,8 +117,13 @@ def multiplicar_con_pasos(A_raw, B_raw, escalar_A=None, escalar_B=None):
         expresiones.append(fila_exp)
         resultado.append(fila_res)
 
+    # ---- Bloque de operaciones ----
     procedimiento.append("Detalles de operación:")
     procedimiento.append(formatear_detalle_operacion(expresiones))
+
+    # ✅ Nueva sección: mostrar el resultado final con separación visual
+    procedimiento.append("\nResultado:")
+    procedimiento.append(resultado_en_fracciones(resultado))
 
     return {
         "procedimiento": "\n".join(procedimiento),

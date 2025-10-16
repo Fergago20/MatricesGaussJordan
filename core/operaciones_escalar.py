@@ -6,7 +6,6 @@ from soporte.formato_matrices import (
     construir_procedimiento,
 )
 
-
 # =====================================================
 #   MULTIPLICACIÓN ESCALAR CON PROCEDIMIENTO (ALINEADA)
 # =====================================================

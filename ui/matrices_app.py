@@ -204,6 +204,7 @@ class AppMatrices(BaseApp):
         fila_inferior = tk.Frame(marco, bg=MAT_FONDO)
         fila_inferior.pack(fill="x", pady=(8, 4), padx=6)
 
+
         # Botón Escalar
         btn_escalar = tk.Button(
             fila_inferior,
@@ -258,6 +259,18 @@ class AppMatrices(BaseApp):
         )
         btn_limpiar.pack(side="right", padx=(6, 4), pady=(0, 2))
         btn_limpiar.image = icono_limpiar
+
+        # Botón Inversa (solo para matriz cuadrada)
+        btn_inversa = tk.Button(
+    fila_inferior,
+    text=f"Inversa {etiqueta}",
+    bg=MAT_BTN_BG, fg=MAT_BTN_FG,
+    activebackground=MAT_BTN_BG_ACT, activeforeground=MAT_BTN_FG,
+    relief="raised", bd=2, cursor="hand2",
+    font=("Segoe UI", 10, "bold"),
+    command=lambda etq=etiqueta: self._op_inversa(etq)  # <- SIEMPRE así
+)
+        btn_inversa.pack(side="left", padx=(4, 4), pady=(0, 2))
 
         # Guardar referencias
         if etiqueta == "A":
@@ -472,6 +485,29 @@ class AppMatrices(BaseApp):
         except Exception as e:
             print(f"[ERROR] en _op_escalar({cual}): {e}")
             self._mostrar_error(f"Ocurrió un error al escalar la matriz {cual}: {e}")
+
+    
+
+    def _op_inversa(self, cual):
+        from core.Inversa_Matriz import inversa_matriz_con_reglas
+        try:
+            M = self._leer_matriz("A" if cual=="A" else "B")
+            resultado = inversa_matriz_con_reglas(
+                M,
+                modo="float",              # o "fraccion" si usas to_fraccion
+                # convertir_a_fraccion=to_fraccion,
+                tolerancia=1e-12
+            )
+            self.texto_proc.delete("1.0", "end")
+            self.texto_proc.insert("end", resultado["procedimiento"])
+
+            self.texto_res.delete("1.0", "end")
+            self.texto_res.insert("end", resultado["resultado_frac"])
+
+            self.resultado = resultado["resultado_lista"]
+        except Exception as e:
+            import traceback; print(traceback.format_exc())
+            self._mostrar_error(f"Ocurrió un error al calcular la inversa de la matriz {cual}: {type(e).__name__}: {e}")
 
 
     def _mostrar_desde_core(self, resultado):
