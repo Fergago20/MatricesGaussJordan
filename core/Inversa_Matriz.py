@@ -35,7 +35,7 @@ def inversa_matriz_con_reglas(M, modo="fraccion", tolerancia=1e-12):
                     "TEOREMA:\n"
                     "Si ad − bc ≠ 0, entonces A es invertible y\n"
                     "A⁻¹ = 1/(ad−bc) [[d, −b], [−c, a]]\n\n"
-                    "Determinante: det(A) = ad − bc = 0 → A no es invertible."
+                    "Condición: det(A) = ad − bc = 0 → A no es invertible."
                 ),
                 "resultado_frac": "Conclusión: La matriz es singular (no tiene inversa).",
                 "resultado_lista": [],
@@ -57,7 +57,7 @@ def inversa_matriz_con_reglas(M, modo="fraccion", tolerancia=1e-12):
             "A⁻¹ = 1/(ad−bc) [[d, −b], [−c, a]]\n\n"
             "Matriz A:\n"
             f"{formatear_matriz(M)}\n\n"
-            f"Determinante: det(A) = ({a})({d}) − ({b})({c}) = {det}\n\n"
+            f"Condición: det(A) = ({a})({d}) − ({b})({c}) = {det}\n\n"
             "Cálculo de la inversa por la fórmula:\n"
             f"A⁻¹ = (1/{det}) × [[{d}, {(-b)}], [{(-c)}, {a}]]\n\n"
             "A⁻¹ =\n"
@@ -110,6 +110,13 @@ def inversa_matriz_con_reglas(M, modo="fraccion", tolerancia=1e-12):
 
         # --- Si se encontró la inversa ---
         texto_resultado = formatear_matriz(inv) + "\nConclusión: La matriz calculada es efectivamente A⁻¹ (no singular)."
+        texto_proceso += "\n\nVERIFICACIÓN DE LOS TEOREMAS:\n1. Comprobación A·A⁻¹ = I\n\n"
+        pasos1 = multiplicar_con_pasos(M, inv)
+        texto_proceso += pasos1["procedimiento"] + "\n\n"
+        texto_proceso += "2. Comprobación A⁻¹·A = I\n\n"
+        pasos2 = multiplicar_con_pasos(inv, M)
+        texto_proceso += pasos2["procedimiento"] + "\n"
+
 
         return {
             "procedimiento": texto_proceso.strip(),
