@@ -272,6 +272,17 @@ class AppMatrices(BaseApp):
 )
         btn_inversa.pack(side="left", padx=(4, 4), pady=(0, 2))
 
+        btn_determinante = tk.Button(
+    fila_inferior,
+    text=f"Determinante {etiqueta}",
+    bg=MAT_BTN_BG, fg=MAT_BTN_FG,
+    activebackground=MAT_BTN_BG_ACT, activeforeground=MAT_BTN_FG,
+    relief="raised", bd=2, cursor="hand2",
+    font=("Segoe UI", 10, "bold"),
+    command=lambda etq=etiqueta: self._op_determinante(etq)  # <- SIEMPRE así
+)
+        btn_determinante.pack(side="left", padx=(4, 4), pady=(0, 2))
+
         # Guardar referencias
         if etiqueta == "A":
             self.contenedor_A = contenedor
@@ -508,6 +519,38 @@ class AppMatrices(BaseApp):
         except Exception as e:
             import traceback; print(traceback.format_exc())
             self._mostrar_error(f"Ocurrió un error al calcular la inversa de la matriz {cual}: {type(e).__name__}: {e}")
+
+    def _formatear_matriz(self, M):
+        """Devuelve una matriz como texto legible para el widget de texto."""
+        if not M:
+            return ""
+        lineas = []
+        for fila in M:
+            lineas.append("[" + "  ".join(str(x) for x in fila) + "]")
+        return "\n".join(lineas)
+
+    
+
+    def _op_determinante(self, cual):
+        from core.determinante_matriz import determinante_cofactores
+        try:
+            M = self._leer_matriz("A" if cual=="A" else "B")
+            resultado = determinante_cofactores(M, expandir_por="fila", indice=0)
+
+            self.texto_proc.delete("1.0", "end")
+            self.texto_proc.insert("end", resultado["reporte"] + "\n")
+
+            self.texto_res.delete("1.0", "end")
+            self.texto_res.insert("end", str(resultado["det"]))
+
+            self.resultado = [[resultado["det"]]]
+        except Exception as e:
+            import traceback; print(traceback.format_exc())
+            self._mostrar_error(f"Ocurrió un error al calcular la determinante: {e}")
+
+
+
+
 
 
     def _mostrar_desde_core(self, resultado):
