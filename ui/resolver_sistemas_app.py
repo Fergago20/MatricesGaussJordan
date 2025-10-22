@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox, ttk
 from fractions import Fraction
+from core.Cramer import resolver_sistema_Cramer_desde_aumentada
 
 from soporte.validaciones import (
     a_fraccion,
@@ -28,7 +29,7 @@ class AppResolverSistemas(tk.Toplevel):
 
     def __init__(self, toplevel_parent=None, on_volver=None):
         super().__init__(master=toplevel_parent)
-        self.title("Resolver Sistemas — Gauss / Gauss-Jordan")
+        self.title("Resolver Sistemas — Gauss / Gauss-Jordan / Cramer")
         self.configure(bg=GAUSS_FONDO)
         preparar_ventana(self, usar_maximizada=True)
 
@@ -89,7 +90,7 @@ class AppResolverSistemas(tk.Toplevel):
         combo_metodo = ttk.Combobox(
             fila_superior,
             textvariable=self.metodo,
-            values=["Gauss", "Gauss-Jordan"],
+            values=["Gauss", "Gauss-Jordan", "Cramer"],
             state="readonly",
             width=12,
         )
@@ -318,8 +319,10 @@ class AppResolverSistemas(tk.Toplevel):
 
         if metodo == "Gauss":
             resultado = clasificar_y_resolver(self.sistema_actual)
-        else:
+        elif metodo == "Gauss-Jordan":
             resultado = clasificar_y_resolver_gauss_jordan(self.sistema_actual)
+        else:  # Cramer
+            resultado = resolver_sistema_Cramer_desde_aumentada(self.sistema_actual)
 
         self.texto_proc.insert("end", "\n".join(resultado["pasos"]))
         self.texto_sol.delete("1.0", "end")
