@@ -1,6 +1,10 @@
 # ui/matrices_app.py
 import tkinter as tk
 from soporte.validaciones import limpiar_matriz, matriz_esta_vacia
+from core.determinante_matriz import determinante_cofactores
+from soporte.validaciones import hay_fracciones_en_lista
+from core.determinante_matriz import determinante_cofactores
+from core.teoremas_determinante import aplicar_teorema
 from core.operaciones_matrices import (
     sumar_con_pasos,
     restar_con_pasos,
@@ -219,7 +223,7 @@ class AppMatrices(BaseApp):
             font=("Segoe UI", 10, "bold"),
             command=lambda etq=etiqueta: self._op_escalar(etq)
         )
-        btn_escalar.pack(side="left", padx=(4, 4), pady=(0, 2))
+        btn_escalar.grid(row=0, column=0, padx=(4, 4), pady=(0, 2), sticky="w")
 
         # Campo de entrada del escalar
         vcmd = (self.register(validaciones.patron_valido_para_escalar), "%P")
@@ -233,7 +237,31 @@ class AppMatrices(BaseApp):
             validate="key",
             validatecommand=vcmd
         )
-        entry_escalar.pack(side="left", padx=(0, 6), pady=(2, 0))
+        entry_escalar.grid(row=0, column=1, padx=(0, 6), pady=(0, 2), sticky="w")
+        
+        # Botón Inversa (primera fila)
+        btn_inversa = tk.Button(
+            fila_inferior,
+            text=f"Inversa {etiqueta}",
+            bg=MAT_BTN_BG, fg=MAT_BTN_FG,
+            activebackground=MAT_BTN_BG_ACT, activeforeground=MAT_BTN_FG,
+            relief="raised", bd=2, cursor="hand2",
+            font=("Segoe UI", 10, "bold"),
+            command=lambda etq=etiqueta: self._op_inversa(etq)
+        )
+        btn_inversa.grid(row=0, column=2, padx=(4, 4), pady=(0, 2), sticky="w")
+        
+        # Botón Determinante (justo debajo del de Inversa)
+        btn_determinante = tk.Button(
+            fila_inferior,
+            text=f"Determinante {etiqueta}",
+            bg=MAT_BTN_BG, fg=MAT_BTN_FG,
+            activebackground=MAT_BTN_BG_ACT, activeforeground=MAT_BTN_FG,
+            relief="raised", bd=2, cursor="hand2",
+            font=("Segoe UI", 10, "bold"),
+            command=lambda etq=etiqueta: self._op_determinante(etq)
+        )
+        btn_determinante.grid(row=1, column=2, padx=(4, 4), pady=(0, 2), sticky="w")
 
         # Botón Limpiar
         try:
@@ -242,7 +270,7 @@ class AppMatrices(BaseApp):
             icono_limpiar = ImageTk.PhotoImage(img_resized)
         except Exception as e:
             print(f"No se pudo cargar la imagen Limpiar.png: {e}")
-            icono_limpiar = None
+            icono_limpiar = None    
 
         btn_limpiar = tk.Button(
             fila_inferior,
@@ -257,31 +285,8 @@ class AppMatrices(BaseApp):
             width=27,
             height=27
         )
-        btn_limpiar.pack(side="right", padx=(6, 4), pady=(0, 2))
+        btn_limpiar.grid(row=0, column=3, rowspan=2, padx=(8, 4), pady=(0, 2), sticky="e")
         btn_limpiar.image = icono_limpiar
-
-        # Botón Inversa (solo para matriz cuadrada)
-        btn_inversa = tk.Button(
-    fila_inferior,
-    text=f"Inversa {etiqueta}",
-    bg=MAT_BTN_BG, fg=MAT_BTN_FG,
-    activebackground=MAT_BTN_BG_ACT, activeforeground=MAT_BTN_FG,
-    relief="raised", bd=2, cursor="hand2",
-    font=("Segoe UI", 10, "bold"),
-    command=lambda etq=etiqueta: self._op_inversa(etq)  # <- SIEMPRE así
-)
-        btn_inversa.pack(side="left", padx=(4, 4), pady=(0, 2))
-
-        btn_determinante = tk.Button(
-    fila_inferior,
-    text=f"Determinante {etiqueta}",
-    bg=MAT_BTN_BG, fg=MAT_BTN_FG,
-    activebackground=MAT_BTN_BG_ACT, activeforeground=MAT_BTN_FG,
-    relief="raised", bd=2, cursor="hand2",
-    font=("Segoe UI", 10, "bold"),
-    command=lambda etq=etiqueta: self._op_determinante(etq)  # <- SIEMPRE así
-)
-        btn_determinante.pack(side="left", padx=(4, 4), pady=(0, 2))
 
         # Guardar referencias
         if etiqueta == "A":
@@ -502,13 +507,18 @@ class AppMatrices(BaseApp):
     def _op_inversa(self, cual):
         from core.Inversa_Matriz import inversa_matriz_con_reglas
         try:
-            M = self._leer_matriz("A" if cual=="A" else "B")
+            # Validar si la matriz está vacía
+            if matriz_esta_vacia(self.matriz_A if cual == "A" else self.matriz_B):
+                self._mostrar_error(f"Por favor, llena los campos de la matriz {cual} antes de calcular la inversa.")
+                return
+
+            M = self._leer_matriz("A" if cual == "A" else "B")
             resultado = inversa_matriz_con_reglas(
                 M,
-                modo="float",              # o "fraccion" si usas to_fraccion
-                # convertir_a_fraccion=to_fraccion,
+                modo="float",
                 tolerancia=1e-12
             )
+
             self.texto_proc.delete("1.0", "end")
             self.texto_proc.insert("end", resultado["procedimiento"])
 
@@ -516,9 +526,12 @@ class AppMatrices(BaseApp):
             self.texto_res.insert("end", resultado["resultado_frac"])
 
             self.resultado = resultado["resultado_lista"]
+
         except Exception as e:
-            import traceback; print(traceback.format_exc())
+            import traceback
+            print(traceback.format_exc())
             self._mostrar_error(f"Ocurrió un error al calcular la inversa de la matriz {cual}: {type(e).__name__}: {e}")
+
 
     def _formatear_matriz(self, M):
         """Devuelve una matriz como texto legible para el widget de texto."""
@@ -530,31 +543,49 @@ class AppMatrices(BaseApp):
         return "\n".join(lineas)
 
     
-
     def _op_determinante(self, cual):
-        from core.determinante_matriz import determinante_cofactores
         try:
-            M = self._leer_matriz("A" if cual=="A" else "B")
+            matriz_ref = self.matriz_A if cual == "A" else self.matriz_B
+            if matriz_esta_vacia(matriz_ref):
+                self._mostrar_error(f"Por favor, llena los campos de la matriz {cual} antes de calcular el determinante.")
+                return
+
+            M = self._leer_matriz("A" if cual == "A" else "B")
+            if len(M) != len(M[0]):
+                self._mostrar_error(f"La matriz {cual} debe ser cuadrada para calcular su determinante.")
+                return
+
+            # 🧩 Paso 1: Verificar si aplica algún teorema
+            teorema = aplicar_teorema(M)
+            if teorema["aplica"]:
+                self.texto_proc.delete("1.0", "end")
+                self.texto_proc.insert("end", teorema["reporte"])
+
+                self.texto_res.delete("1.0", "end")
+                self.texto_res.insert("end", f"{teorema['teorema']} → det(A) = {teorema['det']}")
+
+                self.resultado = [[teorema["det"]]]
+                return
+
+            # 🧩 Paso 2: Si no aplica, usar cofactores
             resultado = determinante_cofactores(M, expandir_por="fila", indice=0)
 
             self.texto_proc.delete("1.0", "end")
-            self.texto_proc.insert("end", resultado["reporte"] + "\n")
+            self.texto_proc.insert("end", resultado["reporte"])
 
             self.texto_res.delete("1.0", "end")
-            self.texto_res.insert("end", str(resultado["det"]))
+            self.texto_res.insert("end", resultado["conclusion"])
 
             self.resultado = [[resultado["det"]]]
+
         except Exception as e:
-            import traceback; print(traceback.format_exc())
-            self._mostrar_error(f"Ocurrió un error al calcular la determinante: {e}")
-
-
-
+            import traceback
+            print(traceback.format_exc())
+            self._mostrar_error(f"Ocurrió un error al calcular el determinante de la matriz {cual}: {e}")
 
 
 
     def _mostrar_desde_core(self, resultado):
-        from soporte.validaciones import hay_fracciones_en_lista
 
         # Limpiar áreas de texto
         self.texto_proc.delete("1.0", "end")

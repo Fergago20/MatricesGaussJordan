@@ -131,3 +131,21 @@ def patron_valido_para_escalar(texto: str) -> bool:
     Permite vacío temporalmente mientras el usuario escribe.
     """
     return texto == "" or bool(PATRON_ESCALAR.fullmatch(texto))
+
+# =====================================================
+#   VALIDACIÓN PARA EXPRESIONES SIMBÓLICAS (Cramer)
+# =====================================================
+
+PATRON_COEF_SIMB = re.compile(r"^[A-Za-z0-9\+\-\*/\(\)\s]*$")
+
+def patron_valido_para_coeficiente_simb(texto: str) -> bool:
+    """
+    Valida coeficientes que pueden contener letras, números y operadores.
+    Permite expresiones como:
+      - s, 3s, -2s, s+1, (s-2)
+      - a, x, k/2, (3a+b)
+    No evalúa nada, solo verifica que los caracteres sean válidos.
+    """
+    if texto == "":
+        return True  # Permitir vacío temporalmente
+    return bool(PATRON_COEF_SIMB.fullmatch(texto))

@@ -76,13 +76,25 @@ def determinante_cofactores(A_raw: List[List[Any]], expandir_por="fila", indice=
     por_fila = expandir_por.lower().startswith("fila")
     idx = max(0, min(indice, n-1))
 
+    def fmt_par(x):
+        """Devuelve el número entre paréntesis si es negativo o fracción."""
+        texto = fmt(x)
+        if texto.startswith("-") or "/" in texto:
+            return f"({texto})"
+        return texto
+
     reporte = []
     reporte.append("MÉTODO: Expansión por cofactores")
-    reporte.append("Matriz A:")
+    # Calcular el ancho máximo de cada columna
+    cols = len(A[0])
+    widths = [max(len(fmt(A[r][c])) for r in range(len(A))) for c in range(cols)]
+
+    # Imprimir cada fila con columnas alineadas
     for fila in A:
-        reporte.append("  " + str([fmt(x) for x in fila]))
-    reporte.append("")
-    reporte.append(f"Expansión por la {'fila' if por_fila else 'columna'} {idx+1}")
+        celdas = [fmt(fila[c]).rjust(widths[c]) for c in range(cols)]
+        linea = "  | " + "  ".join(celdas) + " |"
+        reporte.append(linea)
+
     reporte.append("")
 
     # --- línea de expansión tipo matriz ---
@@ -90,11 +102,11 @@ def determinante_cofactores(A_raw: List[List[Any]], expandir_por="fila", indice=
     expansion = ["det A ="]
     for k, (i, j) in enumerate(terms_idx):
         aij = A[i][j]
-        coef = sgn(i,j) * aij
+        coef = sgn(i, j) * aij
         pref_sign = "+ " if coef >= 0 and k != 0 else ("- " if coef < 0 else "  ")
         coef_abs = fmt(abs(coef))
         prefix = f"{pref_sign}{coef_abs}·det "
-        Mij = minor(A,i,j)
+        Mij = minor(A, i, j)
         block = fmt_det_block(Mij)
         expansion.append(prefix + block[0])
         for ln in block[1:]:
@@ -109,36 +121,52 @@ def determinante_cofactores(A_raw: List[List[Any]], expandir_por="fila", indice=
         if aij == 0:
             contribs.append(F(0))
             continue
-        s = sgn(i,j)
-        Mij = minor(A,i,j)
+        s = sgn(i, j)
+        Mij = minor(A, i, j)
         detM = det_rec(Mij)
         term = s * aij * detM
         contribs.append(term)
+
         reporte.append(f"Término a_{{{i+1},{j+1}}}:")
         reporte.append(f"  Cofactor = (-1)^({i+1}+{j+1}) = {fmt(s)}")
         reporte.append("  Menor M:")
         for ln in fmt_det_block(Mij):
             reporte.append("    " + ln)
+
+        # Si el menor es de 2x2, mostrar el desarrollo completo con paréntesis
         if len(Mij) == 2:
-            a,b = Mij[0][0], Mij[0][1]
-            c,d = Mij[1][0], Mij[1][1]
-            ad, bc = a*d, b*c
-            reporte.append(f"  det(M) = {fmt(a)}·{fmt(d)} - {fmt(b)}·{fmt(c)} = {fmt(ad)} - {fmt(bc)} = {fmt(detM)}")
+            a, b = Mij[0][0], Mij[0][1]
+            c, d = Mij[1][0], Mij[1][1]
+            ad, bc = a * d, b * c
+            reporte.append(
+                f"  det(M) = ({fmt_par(a)}·{fmt_par(d)}) - ({fmt_par(b)}·{fmt_par(c)}) "
+                f"= ({fmt_par(ad)} - {fmt_par(bc)}) = {fmt(detM)}"
+            )
         else:
             reporte.append(f"  det(M) = {fmt(detM)}")
-        reporte.append(f"  Contribución = {fmt(s)} × {fmt(aij)} × {fmt(detM)} = {fmt(term)}")
+
+        # Contribución: solo los factores en paréntesis, resultado limpio
+        reporte.append(
+            f"  Contribución = ({fmt_par(s)}) × ({fmt_par(aij)}) × ({fmt_par(detM)}) = {fmt(term)}"
+        )
         reporte.append("")
 
-    total = sum(contribs, Fraction(0,1))
+    total = sum(contribs, Fraction(0, 1))
     rep_suma = " + ".join(fmt(c) for c in contribs if c >= 0)
     rep_suma += "".join(" - " + fmt(abs(c)) for c in contribs if c < 0)
     reporte.append(f"Suma de contribuciones: {rep_suma} = {fmt(total)}")
     reporte.append("")
-    # --- conclusión final ---
-    usados = [f"a_{{{i+1},{j+1}}}" for (i,j), c in zip(terms_idx, contribs) if c != 0]
-    if usados:
-        reporte.append(f"CONCLUSIÓN: Solo aportan {', '.join(usados)}.  →  det(A) = {fmt(total)}")
-    else:
-        reporte.append(f"CONCLUSIÓN: Todos los términos se anulan.  →  det(A) = {fmt(total)}")
 
-    return {"metodo": "cofactores", "det": total, "reporte": "\n".join(reporte)}
+    # --- conclusión final ---
+    usados = [f"a_{{{i+1},{j+1}}}" for (i, j), c in zip(terms_idx, contribs) if c != 0]
+    if usados:
+        conclusion = f"Solo aportan {', '.join(usados)}.\n→ det(A) = {fmt(total)}"
+    else:
+        conclusion = f"Todos los términos se anulan.\n→ det(A) = {fmt(total)}"
+
+    return {
+        "metodo": "cofactores",
+        "det": total,
+        "reporte": "\n".join(reporte),
+        "conclusion": conclusion
+    }

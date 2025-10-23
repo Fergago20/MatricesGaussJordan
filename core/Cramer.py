@@ -129,27 +129,11 @@ def resolver_sistema_Cramer_desde_aumentada(
     if not nombres or len(nombres) != n:
         nombres = [f"x{i+1}" for i in range(n)]
 
-    # Mostrar matriz aumentada
-    pasos.append("ENTRADA: Matriz aumentada [A|b]")
-    # Dibujar [A|b] con un separador visual
-    Aum_str_rows = [
-        [_fmt_num(x) for x in fila[:-1]] + ["│"] + [_fmt_num(fila[-1])]
-        for fila in A
-    ]
-    widths = [max(len(Aum_str_rows[i][j]) for i in range(n)) for j in range(len(Aum_str_rows[0]))]
-    def _fmt_row(row):
-        return "  ".join(s.rjust(widths[j]) for j, s in enumerate(row))
-    pasos.append("⎡ " + _fmt_row(Aum_str_rows[0]) + " ⎤")
-    for r in Aum_str_rows[1:-1]:
-        pasos.append("⎢ " + _fmt_row(r) + " ⎥")
-    pasos.append("⎣ " + _fmt_row(Aum_str_rows[-1]) + " ⎦")
-    pasos.append("")
-
     # Mostrar A y b por separado
     pasos.append("Matriz A y vector b extraídos:")
     pasos.append("A:")
     pasos.extend("  " + ln for ln in _fmt_matriz_bloque(A))
-    pasos.append(f"b: {_fmt_vector(b)}")
+    pasos.append(f"\nb: {_fmt_vector(b)}")
     pasos.append(f"Variables: {', '.join(nombres)}")
     pasos.append("")
 

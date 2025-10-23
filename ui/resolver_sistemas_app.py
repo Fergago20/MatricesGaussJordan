@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 from fractions import Fraction
 from core.Cramer import resolver_sistema_Cramer_desde_aumentada
+from core.Cramer_simb import resolver_sistema_Cramer_simb
 
 from soporte.validaciones import (
     a_fraccion,
@@ -46,6 +47,7 @@ class AppResolverSistemas(tk.Toplevel):
         self.generar_plantilla()
 
         self.protocol("WM_DELETE_WINDOW", self._cerrar_toda_la_app)
+        
 
     # ---------- UI ----------
     def _construir_ui(self):
@@ -95,6 +97,7 @@ class AppResolverSistemas(tk.Toplevel):
             width=12,
         )
         combo_metodo.pack(side="left", padx=(6, 10))
+        combo_metodo.bind("<<ComboboxSelected>>", self._actualizar_validacion)
 
         tk.Label(
             fila_superior,
@@ -222,6 +225,25 @@ class AppResolverSistemas(tk.Toplevel):
         e.bind("<FocusIn>", lambda _ev: e.select_range(0, "end"))
         e.bind("<FocusOut>", lambda _ev: (e.insert(0, "0") if e.get().strip() == "" else None))
         return e
+    
+    
+    def _actualizar_validacion(self, event=None):
+        """Actualiza la validación según el método seleccionado."""
+        metodo = self.metodo.get()
+        from soporte.validaciones import (
+            patron_valido_para_coeficiente,
+            patron_valido_para_coeficiente_simb
+        )
+
+        # Detectar todos los Entry activos en la plantilla
+        for widget in self.contenedor_plantilla.winfo_children():
+            if isinstance(widget, tk.Entry):
+                if metodo == "Cramer":
+                    vcmd = (widget.register(patron_valido_para_coeficiente_simb), "%P")
+                else:
+                    vcmd = (widget.register(patron_valido_para_coeficiente), "%P")
+                widget.config(validate="key", validatecommand=vcmd)
+
 
     def generar_plantilla(self):
         for w in self.contenedor_plantilla.winfo_children():
@@ -245,43 +267,64 @@ class AppResolverSistemas(tk.Toplevel):
         entrada_b = self._crear_entry_coef(self.contenedor_plantilla)
         entrada_b.pack(side="left", padx=(0, 6))
         self.entradas_coeficientes.append(entrada_b)
+        
+        # Actualiza validación de todas las entradas según el método actual
+        self.after(100, self._actualizar_validacion)
 
     # ---------- Acciones ----------
     def agregar_ecuacion(self):
         fila_textos = [c.get().strip() for c in self.entradas_coeficientes]
+        metodo = self.metodo.get()
 
-        # Validar caracteres incompletos
-        if any(x in {".", "-", "/"} for x in fila_textos):
-            messagebox.showerror("Error", "Coeficientes incompletos: no puede usar '.', '-', o '/' solos.")
-            for c in self.entradas_coeficientes:
-                c.delete(0, "end")
-                c.insert(0, "0")
-            return
+        if metodo != "Cramer":
+            # Validar caracteres incompletos
+            if any(x in {".", "-", "/"} for x in fila_textos):
+                messagebox.showerror("Error", "Coeficientes incompletos: no puede usar '.', '-', o '/' solos.")
+                for c in self.entradas_coeficientes:
+                    c.delete(0, "end")
+                    c.insert(0, "0")
+                return
+            fila = [a_fraccion(v) for v in fila_textos]
+        else:
+            # Cramer simbólico: mantener texto sin convertir
+            fila = [v if v != "" else "0" for v in fila_textos]
 
-        fila = [a_fraccion(v) for v in fila_textos]
         coeficientes, b = fila[:-1], fila[-1]
 
-        # Evitar ecuaciones nulas
-        if all(c == 0 for c in coeficientes) and b == 0:
-            messagebox.showwarning("Ecuación inválida", "La ecuación es 0 = 0; no será agregada.")
-            for c in self.entradas_coeficientes:
-                c.delete(0, "end")
-                c.insert(0, "0")
-            return
+        # --- Validación general de ecuación nula ---
+        if metodo != "Cramer":
+            if all(c == 0 for c in coeficientes) and b == 0:
+                messagebox.showwarning("Ecuación inválida", "La ecuación es 0 = 0; no será agregada.")
+                for c in self.entradas_coeficientes:
+                    c.delete(0, "end")
+                    c.insert(0, "0")
+                return
+        else:
+            # Solo verificar que no esté totalmente vacía o en blanco
+            if all(c.strip() == "0" for c in coeficientes) and b.strip() == "0":
+                messagebox.showwarning("Ecuación inválida", "La ecuación es 0 = 0; no será agregada.")
+                for c in self.entradas_coeficientes:
+                    c.delete(0, "end")
+                    c.insert(0, "0")
+                return
 
-        # Guardar la ecuación internamente
+        # Guardar ecuación internamente
         self.sistema_actual.append(fila)
 
+        # --- Mostrar ecuación formateada ---
         partes = []
         for i, c in enumerate(coeficientes):
-            if c == 0:
-                continue
-            signo = " + " if c > 0 and partes else (" - " if c < 0 else "")
-            coef_abs = abs(c)
-            if coef_abs == 1:
-                partes.append(f"{signo}x{i+1}")
+            if metodo == "Cramer":
+                if c.strip() == "0":
+                    continue
+                signo = " + " if not c.strip().startswith("-") and partes else " "
+                partes.append(f"{signo}{c}x{i+1}")
             else:
-                partes.append(f"{signo}{coef_abs}x{i+1}")
+                if c == 0:
+                    continue
+                signo = " + " if c > 0 and partes else (" - " if c < 0 else "")
+                coef_abs = abs(c)
+                partes.append(f"{signo}{'' if coef_abs == 1 else coef_abs}x{i+1}")
 
         ecuacion_texto = "".join(partes) if partes else "0"
         self.lista_sistema.insert("end", f"{ecuacion_texto} = {b}")
@@ -290,7 +333,6 @@ class AppResolverSistemas(tk.Toplevel):
         for c in self.entradas_coeficientes:
             c.delete(0, "end")
             c.insert(0, "0")
-
 
     def quitar_ecuacion(self):
         sel = self.lista_sistema.curselection()
@@ -322,7 +364,11 @@ class AppResolverSistemas(tk.Toplevel):
         elif metodo == "Gauss-Jordan":
             resultado = clasificar_y_resolver_gauss_jordan(self.sistema_actual)
         else:  # Cramer
-            resultado = resolver_sistema_Cramer_desde_aumentada(self.sistema_actual)
+            # Si hay letras o expresiones, usar el modo simbólico
+            if any(any(ch.isalpha() for ch in str(c)) for fila in self.sistema_actual for c in fila):
+                resultado = resolver_sistema_Cramer_simb(self.sistema_actual)
+            else:
+                resultado = resolver_sistema_Cramer_desde_aumentada(self.sistema_actual)
 
         self.texto_proc.insert("end", "\n".join(resultado["pasos"]))
         self.texto_sol.delete("1.0", "end")

@@ -49,7 +49,7 @@ def mostrar_menu():
 
     BotonCard(
         fila,
-        "Gauss / Gauss-Jordan",
+        "Resolución de Sistemas de Ecuaciones",
         img_resolver,
         lambda: abrir_modulo(AppResolverSistemas)
     ).grid(row=0, column=0, padx=28, pady=8)
