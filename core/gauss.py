@@ -78,7 +78,6 @@ def _rango_por_forma(m: List[List[Fraction]], incluir_b: bool, nvars: int) -> in
             rango += 1
     return rango
 
-
 def _sustitucion_hacia_atras(ref: List[List[Fraction]]) -> Tuple[List[str], List[Fraction]]:
     """Aplica sustitución hacia atrás (back-substitution) para hallar las incógnitas."""
     filas = len(ref)
@@ -90,6 +89,15 @@ def _sustitucion_hacia_atras(ref: List[List[Fraction]]) -> Tuple[List[str], List
     idx_fila = filas - 1
     while idx_fila >= 0 and all(ref[idx_fila][j] == 0 for j in range(nvars)):
         idx_fila -= 1
+
+    def _formatear_termino(coef: Fraction, var_index: int) -> str:
+        """Devuelve un término limpio como 'x2', '-x3', '3/2x1'."""
+        if coef == 1:
+            return f"x{var_index}"
+        elif coef == -1:
+            return f"-x{var_index}"
+        else:
+            return f"{_fr(coef)}x{var_index}"
 
     # Recorremos hacia arriba
     for i in range(idx_fila, -1, -1):
@@ -103,9 +111,12 @@ def _sustitucion_hacia_atras(ref: List[List[Fraction]]) -> Tuple[List[str], List
 
         # Calcular la suma de términos a la derecha del pivote
         suma = Fraction(0, 1)
+        terminos = []
         for j in range(col_piv + 1, nvars):
-            if ref[i][j] != 0:
-                suma += ref[i][j] * x[j]
+            coef = ref[i][j]
+            if coef != 0:
+                suma += coef * x[j]
+                terminos.append(_formatear_termino(coef, j + 1))
 
         ai = ref[i][col_piv]
         bi = ref[i][nvars]
@@ -113,14 +124,17 @@ def _sustitucion_hacia_atras(ref: List[List[Fraction]]) -> Tuple[List[str], List
         xi = numerador / ai
         x[col_piv] = xi
 
-        # Describir el paso
-        term_sum = " + ".join(f"({_fr(ref[i][j])})·x{j+1}" for j in range(col_piv+1, nvars) if ref[i][j] != 0)
-        if term_sum == "":
-            # Solo hay un pivote y un término independiente
-            detalle = f"x{col_piv+1} = ({_fr(bi)}) / ({_fr(ai)}) = {_fr(xi)}"
+        # Describir el paso en formato limpio
+        if not terminos:
+            detalle = f"x{col_piv+1} = {_fr(bi)}/{_fr(ai)} = {_fr(xi)}"
         else:
-            # Hay varios términos en la fila
-            detalle = f"x{col_piv+1} = ({_fr(bi)} - ({term_sum})) / ({_fr(ai)}) = {_fr(xi)}"
+            expresion = " + ".join(terminos)
+            # limpiar "+ -" si ocurre, y evitar mostrar "+ ..." inicial
+            expresion = expresion.replace("+ -", "- ")
+            if expresion.startswith("+ "):
+                expresion = expresion[2:]
+            detalle = f"x{col_piv+1} = ({_fr(bi)} - ({expresion})) / {_fr(ai)} = {_fr(xi)}"
+
         pasos.append(detalle)
     return pasos, x
 

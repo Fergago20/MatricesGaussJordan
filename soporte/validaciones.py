@@ -27,23 +27,34 @@ def patron_valido_para_coeficiente(texto: str) -> bool:
 
 def a_fraccion(valor) -> Fraction:
     """
-    Convierte una cadena o número a fracción exacta.
-    Ejemplo:
-    >>> a_fraccion("3/4") → Fraction(3, 4)
-    >>> a_fraccion("1.5") → Fraction(3, 2)
-    >>> a_fraccion(2)     → Fraction(2, 1)
+    Convierte una cadena o número a Fraction sin pérdida de precisión.
+    Soporta:
+      - Enteros: "2", "-5"
+      - Decimales: "1.5", "-0.25"
+      - Fracciones: "3/4", "-2/5"
+    Devuelve Fraction(0) si el valor no es válido.
     """
     try:
         if isinstance(valor, Fraction):
             return valor
         if isinstance(valor, (int, float)):
             return Fraction(valor)
-        valor = valor.strip()
-        if "/" in valor:
-            return Fraction(valor)
-        if valor == "" or valor == "-":
+        if not isinstance(valor, str):
             return Fraction(0)
-        return Fraction(str(float(valor)))
+
+        valor = valor.strip()
+        if valor in ("", "-"):
+            return Fraction(0)
+
+        # Fracción explícita
+        if "/" in valor:
+            num, den = valor.split("/", 1)
+            num = num.strip() or "0"
+            den = den.strip() or "1"
+            return Fraction(int(num), int(den))
+
+        # Decimal o entero
+        return Fraction(valor)
     except Exception:
         return Fraction(0)
 
@@ -104,3 +115,19 @@ def matriz_esta_vacia(matriz):
             if e.get().strip() != "":
                 return False
     return True
+
+# =====================================================
+#   VALIDACIÓN PARA ESCALARES (ENTEROS, FRACCIONES, DECIMALES)
+# =====================================================
+
+PATRON_ESCALAR = re.compile(r"^-?\d*(?:\.\d*)?(?:/\d*)?$")
+
+def patron_valido_para_escalar(texto: str) -> bool:
+    """
+    Valida que el texto ingresado en el campo Escalar sea:
+    - Entero (2, -5)
+    - Decimal (3.14, -0.5)
+    - Fracción (3/4, -2/5)
+    Permite vacío temporalmente mientras el usuario escribe.
+    """
+    return texto == "" or bool(PATRON_ESCALAR.fullmatch(texto))

@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox, ttk
 from fractions import Fraction
+from core.Cramer import resolver_sistema_Cramer_desde_aumentada
 
 from soporte.validaciones import (
     a_fraccion,
@@ -28,7 +29,7 @@ class AppResolverSistemas(tk.Toplevel):
 
     def __init__(self, toplevel_parent=None, on_volver=None):
         super().__init__(master=toplevel_parent)
-        self.title("Resolver Sistemas — Gauss / Gauss-Jordan")
+        self.title("Resolver Sistemas — Gauss / Gauss-Jordan / Cramer")
         self.configure(bg=GAUSS_FONDO)
         preparar_ventana(self, usar_maximizada=True)
 
@@ -89,7 +90,7 @@ class AppResolverSistemas(tk.Toplevel):
         combo_metodo = ttk.Combobox(
             fila_superior,
             textvariable=self.metodo,
-            values=["Gauss", "Gauss-Jordan"],
+            values=["Gauss", "Gauss-Jordan", "Cramer"],
             state="readonly",
             width=12,
         )
@@ -260,6 +261,7 @@ class AppResolverSistemas(tk.Toplevel):
         fila = [a_fraccion(v) for v in fila_textos]
         coeficientes, b = fila[:-1], fila[-1]
 
+        # Evitar ecuaciones nulas
         if all(c == 0 for c in coeficientes) and b == 0:
             messagebox.showwarning("Ecuación inválida", "La ecuación es 0 = 0; no será agregada.")
             for c in self.entradas_coeficientes:
@@ -267,16 +269,28 @@ class AppResolverSistemas(tk.Toplevel):
                 c.insert(0, "0")
             return
 
+        # Guardar la ecuación internamente
         self.sistema_actual.append(fila)
-        # Mostrar en texto legible
-        ecuacion_texto = " + ".join(
-            f"{c if c != 0 else 0}x{i+1}" for i, c in enumerate(coeficientes) if c != 0
-        )
+
+        partes = []
+        for i, c in enumerate(coeficientes):
+            if c == 0:
+                continue
+            signo = " + " if c > 0 and partes else (" - " if c < 0 else "")
+            coef_abs = abs(c)
+            if coef_abs == 1:
+                partes.append(f"{signo}x{i+1}")
+            else:
+                partes.append(f"{signo}{coef_abs}x{i+1}")
+
+        ecuacion_texto = "".join(partes) if partes else "0"
         self.lista_sistema.insert("end", f"{ecuacion_texto} = {b}")
 
+        # Limpiar entradas
         for c in self.entradas_coeficientes:
             c.delete(0, "end")
             c.insert(0, "0")
+
 
     def quitar_ecuacion(self):
         sel = self.lista_sistema.curselection()
@@ -305,8 +319,10 @@ class AppResolverSistemas(tk.Toplevel):
 
         if metodo == "Gauss":
             resultado = clasificar_y_resolver(self.sistema_actual)
-        else:
+        elif metodo == "Gauss-Jordan":
             resultado = clasificar_y_resolver_gauss_jordan(self.sistema_actual)
+        else:  # Cramer
+            resultado = resolver_sistema_Cramer_desde_aumentada(self.sistema_actual)
 
         self.texto_proc.insert("end", "\n".join(resultado["pasos"]))
         self.texto_sol.delete("1.0", "end")

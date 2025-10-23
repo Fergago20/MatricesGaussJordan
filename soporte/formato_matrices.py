@@ -7,15 +7,35 @@ from fractions import Fraction
 # =====================================================
 
 def convertir_a_fraccion(valor):
-    """Convierte un valor (str o numérico) a Fraction de forma segura."""
+    """
+    Convierte un valor (str o numérico) a Fraction sin perder precisión.
+    Soporta enteros, decimales y fracciones.
+    """
     try:
         if isinstance(valor, Fraction):
             return valor
-        if "/" in str(valor):
+        if isinstance(valor, (int, float)):
             return Fraction(valor)
-        return Fraction(str(float(valor)))
+        if not isinstance(valor, str):
+            return Fraction(0)
+
+        valor = valor.strip()
+        if valor in ("", "-"):
+            return Fraction(0)
+
+        if "/" in valor:
+            num, den = valor.split("/", 1)
+            num = num.strip() or "0"
+            den = den.strip() or "1"
+            return Fraction(int(num), int(den))
+
+        return Fraction(valor)
     except Exception:
         return Fraction(0)
+    
+def a_fraccion(valor):
+    """Atajo para convertir a Fraction, compatible con los módulos core."""
+    return convertir_a_fraccion(valor)
     
 def envolver_valor(valor: str) -> str:
     """
@@ -67,22 +87,29 @@ def formatear_detalle_operacion(expresiones):
     return "\n".join(filas_fmt)
 
 def construir_procedimiento(A_raw, B_raw, operador):
-    """Muestra matrices A y B alineadas lado a lado con el operador (+, -, ×)."""
+    """
+    Muestra matrices A y B alineadas lado a lado con el operador (+, -, ×),
+    sin encabezado textual ('Matriz A:' / 'Matriz B:').
+    """
     filas_A, cols_A = len(A_raw), len(A_raw[0])
     filas_B, cols_B = len(B_raw), len(B_raw[0])
 
     texto_A = formatear_matriz(A_raw, corchetes=True).split("\n")
     texto_B = formatear_matriz(B_raw, corchetes=True).split("\n")
 
-    procedimiento = ["Matriz A:".ljust(25) + "Matriz B:"]
     max_filas = max(filas_A, filas_B)
+    procedimiento = []
 
+    # Alinear cada fila y colocar el operador centrado verticalmente
     for i in range(max_filas):
         filaA = texto_A[i] if i < len(texto_A) else " " * len(texto_A[0])
         filaB = texto_B[i] if i < len(texto_B) else ""
+
         if i == max_filas // 2:
+            # Línea central: mostrar el operador en el medio
             procedimiento.append(f"{filaA}   {operador}   {filaB}")
         else:
+            # Líneas restantes: espacio para mantener alineación
             procedimiento.append(f"{filaA}       {filaB}")
 
     return "\n".join(procedimiento)
@@ -113,7 +140,7 @@ def formatear_ecuacion_linea(fila):
 
 def matriz_alineada_con_titulo(titulo, matriz, con_barra=False):
     """Devuelve una matriz alineada con un título arriba."""
-    texto = f"{titulo}\n"
+    texto = f"{titulo}\n" if titulo else ""
     if con_barra:
         texto += formatear_matriz(
             [fila[:-1] + ['|'] + [fila[-1]] for fila in matriz],
@@ -122,6 +149,7 @@ def matriz_alineada_con_titulo(titulo, matriz, con_barra=False):
     else:
         texto += formatear_matriz(matriz)
     return texto + "\n"
+
 
 def resultado_en_fracciones(matriz):
     """Formatea la matriz resultado en fracciones."""
@@ -132,3 +160,16 @@ def resultado_en_decimales(matriz, decimales=4):
     """Formatea la matriz resultado en decimales con alineación."""
     matriz_dec = [[f"{float(x):.{decimales}f}" for x in fila] for fila in matriz]
     return formatear_matriz(matriz_dec, corchetes=True)
+
+# =====================================================
+#   FORMATO DE PASOS ESPECÍFICOS (GAUSS–JORDAN / INVERSA)
+# =====================================================
+def formatear_pasos_inversa_gauss_jordan(M_original, pasos, A_inv):
+    """
+    Construye el texto completo de pasos del método Gauss–Jordan.
+    """
+    texto = "Matriz A original:\n" + formatear_matriz(M_original) + "\n\n"
+    texto += "Desarrollo por el método de Gauss–Jordan:\n"
+    texto += "\n".join(pasos) + "\n\n"
+    texto += "Matriz inversa obtenida (A⁻¹):\n" + formatear_matriz(A_inv) + "\n"
+    return texto

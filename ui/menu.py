@@ -5,8 +5,7 @@ from ui.componentes import BotonCard
 from ui.estilos import FONDO_MENU, TEXTO_BLANCO, FUENTE_TITULO, FUENTE_SUBTITULO
 from ui.resolver_sistemas_app import AppResolverSistemas   # ✅ nuevo archivo unificado
 from ui.matrices_app import AppMatrices
-from ui.vector import AppVectores
-
+from ui.app_vectores import AppIndependenciaLineal
 
 def mostrar_menu():
     root = tk.Tk()
@@ -66,7 +65,7 @@ def mostrar_menu():
         fila,
         "Dependencia de Vectores",
         img_vectores,
-        lambda: abrir_modulo(AppVectores)
+        lambda: abrir_modulo(AppIndependenciaLineal)
     ).grid(row=0, column=2, padx=28, pady=8)
 
     def abrir_modulo(AppClase):
