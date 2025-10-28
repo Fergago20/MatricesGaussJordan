@@ -26,7 +26,7 @@ from ui.estilos import (
 )
 
 class AppResolverSistemas(tk.Toplevel):
-    """Ventana unificada para resolver sistemas con Gauss o Gauss-Jordan / Cramer."""
+    """Ventana unificada para resolver sistemas con Gauss / Gauss-Jordan / Cramer."""
 
     def __init__(self, toplevel_parent=None, on_volver=None):
         super().__init__(master=toplevel_parent)
@@ -290,7 +290,7 @@ class AppResolverSistemas(tk.Toplevel):
                 for c in self.entradas_coeficientes:
                     c.delete(0, "end"); c.insert(0, "0")
                 return
-            # Guardia útil para Cramer (m = n)
+            # (Mantenemos esta guarda opcional; si no la quieres, puedes quitarla)
             if len(self.sistema_actual) >= self.numero_variables.get():
                 messagebox.showwarning(
                     "No permitido",
@@ -302,18 +302,18 @@ class AppResolverSistemas(tk.Toplevel):
         # Guardar ecuación internamente
         self.sistema_actual.append(fila)
 
-        # Mostrar ecuación formateada
+        # --- Mostrar ecuación formateada ---
         partes = []
         for i, c in enumerate(coeficientes):
             if metodo == "Cramer":
                 if str(c).strip() == "0":
                     continue
-                signo = " + " if not str(c).strip().startswith("-") and partes else " "
+                signo = " + " if (not str(c).strip().startswith("-") and partes) else " "
                 partes.append(f"{signo}{c}x{i+1}")
             else:
                 if c == 0:
                     continue
-                signo = " + " if c > 0 and partes else (" - " if c < 0 else "")
+                signo = " + " if (c > 0 and partes) else (" - " if c < 0 else "")
                 coef_abs = abs(c)
                 partes.append(f"{signo}{'' if coef_abs == 1 else coef_abs}x{i+1}")
 
@@ -354,15 +354,7 @@ class AppResolverSistemas(tk.Toplevel):
         elif metodo == "Gauss-Jordan":
             resultado = clasificar_y_resolver_gauss_jordan(self.sistema_actual)
         else:  # Cramer
-            # Guardia: m debe ser n
-            n = self.numero_variables.get()
-            m = len(self.sistema_actual)
-            if m != n:
-                messagebox.showerror(
-                    "Dimensiones incompatibles",
-                    f"Cramer requiere A cuadrada (m = n). Tienes m={m} ecuaciones y n={n} incógnitas."
-                )
-                return
+            # ❗ Sin alertas: dejamos que la función reporte en 'pasos' y 'mensaje_tipo'
             if any(any(ch.isalpha() for ch in str(c)) for fila in self.sistema_actual for c in fila):
                 resultado = resolver_sistema_Cramer_simb(self.sistema_actual)
             else:
@@ -414,8 +406,7 @@ class AppResolverSistemas(tk.Toplevel):
     def _on_cambio_incognitas(self, *args):
         """
         Impide cambiar 'Incógnitas' si ya hay ecuaciones cargadas.
-        IMPORTANTE: ya no regeneramos la plantilla aquí.
-        La plantilla se genera SOLO con el botón 'Generar plantilla'.
+        IMPORTANTE: la plantilla se genera SOLO con el botón 'Generar plantilla'.
         """
         nuevo = self.numero_variables.get()
         if self._hay_datos_en_sistema():
@@ -426,9 +417,7 @@ class AppResolverSistemas(tk.Toplevel):
             )
             self.numero_variables.set(self._prev_num_vars)
             return
-        # Aceptamos el cambio, pero NO generamos plantilla automáticamente.
-        self._prev_num_vars = nuevo
-        # (El usuario deberá pulsar 'Generar plantilla' para aplicar el nuevo tamaño)
+        self._prev_num_vars = nuevo  # no generamos plantilla aquí
 
     # ---------- Navegación ----------
     def _cerrar_toda_la_app(self):
