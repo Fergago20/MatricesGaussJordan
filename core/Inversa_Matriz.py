@@ -13,7 +13,10 @@ def inversa_matriz_con_reglas(M, modo="fraccion", tolerancia=1e-12):
 
     # Validar matriz cuadrada
     if len(M) == 0 or len(M) != len(M[0]):
-        return {"error": "La matriz debe ser cuadrada para calcular su inversa."}
+        return {"error": "La matriz debe ser cuadrada para calcular su inversa.",
+                "procedimiento": "No se puede calcular la inversa de una matriz no cuadrada.",
+                "resultado_frac": "",
+                "resultado_lista": [],}
 
     n = len(M)
 
