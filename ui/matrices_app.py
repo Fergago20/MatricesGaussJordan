@@ -198,18 +198,29 @@ class AppMatrices(BaseApp):
             parent, text=f"Matriz {etiqueta}",
             fg=MAT_TEXTO, bg=MAT_FONDO, font=FUENTE_BOLD
         )
-        marco.grid(row=0, column=col, padx=20, pady=(10, 4), sticky="n")
+        # Reducido para dejar más espacio al panel derecho (procedimiento)
+        marco.grid(row=0, column=col, padx=8, pady=(6, 4), sticky="n")
 
         # --- Contenedor de la cuadrícula de la matriz ---
         contenedor = tk.Frame(marco, bg=MAT_FONDO)
-        contenedor.pack(pady=6)
+        # menos padding para ocupar menos espacio vertical
+        contenedor.pack(pady=4)
 
-        # --- Fila inferior: botón Escalar + campo + botón Limpiar ---
+        # --- Fila inferior: botón Escalar + campo + botones varios + botón Limpiar ---
         fila_inferior = tk.Frame(marco, bg=MAT_FONDO)
-        fila_inferior.pack(fill="x", pady=(8, 4), padx=6)
+        fila_inferior.pack(fill="x", pady=(6, 4), padx=4)
 
+        # Mejorar espaciado con configuración de columna
+        for i in range(6):
+            fila_inferior.grid_columnconfigure(i, weight=0)
+        # columna final expande para empujar el botón Limpiar a la derecha
+        fila_inferior.grid_columnconfigure(5, weight=1)
 
-        # Botón Escalar
+        # Padding consistente para botones (reducido)
+        padx_btn = 4
+        pady_btn = 2
+
+        # Botón Escalar (fuente reducida)
         btn_escalar = tk.Button(
             fila_inferior,
             text="Escalar",
@@ -220,12 +231,12 @@ class AppMatrices(BaseApp):
             relief="raised",
             bd=2,
             cursor="hand2",
-            font=("Segoe UI", 10, "bold"),
+            font=("Segoe UI", 9, "bold"),
             command=lambda etq=etiqueta: self._op_escalar(etq)
         )
-        btn_escalar.grid(row=0, column=0, padx=(4, 4), pady=(0, 2), sticky="w")
+        btn_escalar.grid(row=0, column=0, padx=(0, padx_btn), pady=pady_btn, sticky="w")
 
-        # Campo de entrada del escalar
+        # Campo de entrada del escalar (más corto)
         vcmd = (self.register(validaciones.patron_valido_para_escalar), "%P")
         entry_escalar = tk.Entry(
             fila_inferior,
@@ -233,44 +244,56 @@ class AppMatrices(BaseApp):
             bg=MAT_CAJA_BG,
             fg=MAT_CAJA_FG,
             justify="center",
-            font=("Segoe UI", 10),
+            font=("Segoe UI", 9),
             validate="key",
             validatecommand=vcmd
         )
-        entry_escalar.grid(row=0, column=1, padx=(0, 6), pady=(0, 2), sticky="w")
-        
-        # Botón Inversa (primera fila)
+        entry_escalar.grid(row=0, column=1, padx=(0, padx_btn), pady=pady_btn, sticky="w")
+
+        # Botón Inversa (fuente reducida)
         btn_inversa = tk.Button(
             fila_inferior,
             text=f"Inversa {etiqueta}",
             bg=MAT_BTN_BG, fg=MAT_BTN_FG,
             activebackground=MAT_BTN_BG_ACT, activeforeground=MAT_BTN_FG,
             relief="raised", bd=2, cursor="hand2",
-            font=("Segoe UI", 10, "bold"),
+            font=("Segoe UI", 9, "bold"),
             command=lambda etq=etiqueta: self._op_inversa(etq)
         )
-        btn_inversa.grid(row=0, column=2, padx=(4, 4), pady=(0, 2), sticky="w")
-        
-        # Botón Determinante (justo debajo del de Inversa)
+        btn_inversa.grid(row=0, column=2, padx=(0, padx_btn), pady=pady_btn, sticky="w")
+
+        # Botón Determinante (fuente reducida)
         btn_determinante = tk.Button(
             fila_inferior,
             text=f"Determinante {etiqueta}",
             bg=MAT_BTN_BG, fg=MAT_BTN_FG,
             activebackground=MAT_BTN_BG_ACT, activeforeground=MAT_BTN_FG,
             relief="raised", bd=2, cursor="hand2",
-            font=("Segoe UI", 10, "bold"),
+            font=("Segoe UI", 9, "bold"),
             command=lambda etq=etiqueta: self._op_determinante(etq)
         )
-        btn_determinante.grid(row=1, column=2, padx=(4, 4), pady=(0, 2), sticky="w")
+        btn_determinante.grid(row=0, column=3, padx=(0, padx_btn), pady=pady_btn, sticky="w")
 
-        # Botón Limpiar
+        # Botón Transpuesta (fuente reducida)
+        btn_traspuesta = tk.Button(
+            fila_inferior,
+            text=f"Transpuesta {etiqueta}",
+            bg=MAT_BTN_BG, fg=MAT_BTN_FG,
+            activebackground=MAT_BTN_BG_ACT, activeforeground=MAT_BTN_FG,
+            relief="raised", bd=2, cursor="hand2",
+            font=("Segoe UI", 9, "bold"),
+            command=lambda etq=etiqueta: self._op_traspuesta(etq)
+        )
+        btn_traspuesta.grid(row=0, column=4, padx=(0, padx_btn), pady=pady_btn, sticky="w")
+
+        # Botón Limpiar (icono más pequeño para ocupar menos espacio)
         try:
             img_original = Image.open("imagenes/Limpiar.png")
-            img_resized = img_original.resize((26, 26), Image.LANCZOS)
+            img_resized = img_original.resize((20, 20), Image.LANCZOS)
             icono_limpiar = ImageTk.PhotoImage(img_resized)
         except Exception as e:
             print(f"No se pudo cargar la imagen Limpiar.png: {e}")
-            icono_limpiar = None    
+            icono_limpiar = None
 
         btn_limpiar = tk.Button(
             fila_inferior,
@@ -278,14 +301,15 @@ class AppMatrices(BaseApp):
             text="" if icono_limpiar else "Limpiar",
             command=lambda: self._limpiar_matriz(etiqueta),
             bg=MAT_BTN_BG,
+            fg=MAT_BTN_FG,
             activebackground=MAT_BTN_BG_ACT,
             relief="raised",
             bd=2,
             cursor="hand2",
-            width=27,
-            height=27
+            width=24,
+            height=24
         )
-        btn_limpiar.grid(row=0, column=3, rowspan=2, padx=(8, 4), pady=(0, 2), sticky="e")
+        btn_limpiar.grid(row=0, column=5, padx=(6, 0), pady=pady_btn, sticky="e")
         btn_limpiar.image = icono_limpiar
 
         # Guardar referencias
@@ -503,6 +527,30 @@ class AppMatrices(BaseApp):
             self._mostrar_error(f"Ocurrió un error al escalar la matriz {cual}: {e}")
 
     
+    def _op_traspuesta(self, cual):
+        try:
+            # Validar si la matriz está vacía
+            if matriz_esta_vacia(self.matriz_A if cual == "A" else self.matriz_B):
+                self._mostrar_error(f"Por favor, llena los campos de la matriz {cual} antes de calcular la transpuesta.")
+                return
+
+            M = self._leer_matriz("A" if cual == "A" else "B")
+            from core.operaciones_matrices import traspuesta_con_pasos
+            resultado = traspuesta_con_pasos(M)
+
+            self.texto_proc.delete("1.0", "end")
+            self.texto_proc.insert("end", resultado["procedimiento"])
+
+            self.texto_res.delete("1.0", "end")
+            self.texto_res.insert("end", resultado["resultado_frac"])
+
+            self.resultado = resultado["resultado_lista"]
+
+        except Exception as e:
+            import traceback
+            print(traceback.format_exc())
+            self._mostrar_error(f"Ocurrió un error al calcular la transpuesta de la matriz {cual}: {type(e).__name__}: {e}")
+
 
     def _op_inversa(self, cual):
         from core.Inversa_Matriz import inversa_matriz_con_reglas

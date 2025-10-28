@@ -131,3 +131,45 @@ def multiplicar_con_pasos(A_raw, B_raw, escalar_A=None, escalar_B=None):
         "resultado_frac": resultado_en_fracciones(resultado),
         "resultado_dec": resultado_en_decimales(resultado),
     }
+
+def traspuesta_con_pasos(M_raw):
+    """Calcula la transpuesta de una matriz mostrando el procedimiento paso a paso."""
+    filas, cols = len(M_raw), len(M_raw[0])
+
+    procedimiento = []
+    procedimiento.append("Transpuesta de la matriz:")
+    procedimiento.append(formatear_matriz(M_raw, "Matriz original:"))
+    procedimiento.append(f"Dimensiones: {filas}×{cols}  →  la transpuesta será de {cols}×{filas}.")
+    procedimiento.append("Regla de construcción: T[j][i] = M[i][j] (intercambiamos filas por columnas).")
+    procedimiento.append(f"Inicializamos una matriz vacía para T de tamaño {cols}×{filas}.")
+
+    resultado = []
+
+    # Para cada columna j de la matriz original, formamos la fila j de la transpuesta
+    for j in range(cols):
+        procedimiento.append(f"\nPaso {j+1}: construir la fila {j} de la transpuesta a partir de la columna {j} de la original.")
+        fila_res = []
+
+        # Vamos tomando M[i][j] para i = 0..filas-1
+        asignaciones = []
+        for i in range(filas):
+            valor = M_raw[i][j]
+            fila_res.append(valor)
+            asignaciones.append(f"T[{j}][{i}] = M[{i}][{j}] = {valor}")
+
+        # Mostrar cómo se llenó la fila j completa
+        procedimiento.append("  Asignaciones: " + " | ".join(asignaciones))
+
+        # Añadimos la fila construida a la transpuesta parcial
+        resultado.append(fila_res)
+        procedimiento.append(formatear_matriz(resultado, f"Matriz parcial tras añadir la fila {j} de T:"))
+
+    procedimiento.append(formatear_matriz(resultado, "Matriz transpuesta:"))
+
+    return {
+        "procedimiento": "\n".join(procedimiento),
+        "resultado_lista": resultado,
+        "resultado_frac": resultado_en_fracciones(resultado),
+        "resultado_dec": resultado_en_decimales(resultado),
+    }
+
