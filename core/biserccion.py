@@ -1,4 +1,16 @@
 import sympy as sp
+from fractions import Fraction
+
+def fraccion(x):
+    """Convierte la entrada a fracción si es posible (cadena como '1/2' o número)."""
+    if isinstance(x, Fraction): 
+        return x  # Si ya es una fracción, devuélvela tal cual
+    if isinstance(x, int): 
+        return Fraction(x, 1)  # Si es un entero, lo convierte a fracción
+    try:
+        return Fraction(str(x))  # Intenta convertir la cadena a fracción
+    except ValueError:
+        raise ValueError(f"No se puede convertir {x} a una fracción válida.")
 
 def punto_medio(a, b):
     """Calcula el punto medio entre a y b."""
@@ -9,6 +21,7 @@ def evaluar_en_punto(ecuacion_str, x_val):
     La ecuación_str debe ser compatible con sympy.sympify."""
     x = sp.symbols('x')
     try:
+        ecuacion_str.replace('÷', '/')  # Asegura que los exponentes estén en formato correcto
         expr = sp.sympify(ecuacion_str)
         resultado = expr.subs(x, x_val)
         
@@ -41,8 +54,8 @@ def evaluar_primera_condicion(fa, fb):
     return fa * fb < 0
 
 def calcular_biseccion(funcion, a, b, tol):
-    intervalo1 = a
-    intervalo2 = b
+    intervalo1 = fraccion(a)
+    intervalo2 = fraccion(b)
     c = punto_medio(intervalo1, intervalo2)
 
     # Verificar que 'funcion' es un string y pasa el string a una función evaluable
@@ -73,9 +86,10 @@ def calcular_biseccion(funcion, a, b, tol):
         c = punto_medio(intervalo1, intervalo2)  # Nuevo punto medio
         fc = valor_funcion(funcion, c)  # Evaluar en el nuevo punto medio
 
-        # Almacenar los resultados de esta iteración
-        resultados.append([iteraciones + 1, intervalo1, intervalo2, c, fa, fb, fc])
+        # Almacenar los resultados de esta iteración, convirtiéndolos a float
+        resultados.append([iteraciones + 1, float(intervalo1), float(intervalo2), float(c), float(fa), float(fb), float(fc)])
 
         iteraciones += 1
 
-    return c, iteraciones, resultados
+    # Devolver el resultado en formato decimal
+    return float(c), iteraciones, resultados

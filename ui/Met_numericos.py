@@ -147,7 +147,7 @@ class CalculadoraCientificaFrame(ctk.CTkFrame):
         boton_x.grid(row=3, column=1, sticky="nsew", padx=2, pady=2)
 
     def crear_botones_aritmeticos(self):
-        operaciones = ['+', '-', '*', '÷']
+        operaciones = ['+', '-', '*', '/']
         for i, op in enumerate(operaciones):
             boton = ctk.CTkButton(self.frame_derecho, text=op, command=lambda t=op: self.al_presionar_boton(t))
             boton.grid(row=i, column=3, sticky="nsew", padx=2, pady=2)
@@ -179,8 +179,11 @@ class CalculadoraCientificaFrame(ctk.CTkFrame):
         elif texto_boton == '^3':
             self.expresion = expresion_actual[:int(caret_pos)] + '³' + expresion_actual[int(caret_pos):]
         elif texto_boton == 'x^x':
-            self.modo_superindice = True
-            self.expresion = expresion_actual  # No agrega símbolo visible
+            if not self.modo_superindice:
+                self.modo_superindice = True
+                self.expresion = expresion_actual 
+            else:
+                self.modo_superindice = False
         elif texto_boton in {'sen', 'cos', 'tan', 'ln', 'sec', 'log'}:
             self.expresion = expresion_actual[:int(caret_pos)] + f"{texto_boton}(" + expresion_actual[int(caret_pos):]
         elif texto_boton == 'pi':
@@ -199,10 +202,10 @@ class CalculadoraCientificaFrame(ctk.CTkFrame):
                                   expresion_actual[int(caret_pos):])
             elif texto_boton == 'x' and self.modo_superindice:
                 self.expresion = expresion_actual[:int(caret_pos)] + 'ˣ' + expresion_actual[int(caret_pos):]
-
+            
             else:
                 self.expresion = expresion_actual[:int(caret_pos)] + texto_boton + expresion_actual[int(caret_pos):]
-        self.modo_superindice = False  # Desactiva el modo superíndice después de insertar
+         # Desactiva el modo superíndice después de insertar
 
         # Actualiza el contenido del textbox
         self.parent_textbox.delete(0, 'end')
@@ -234,15 +237,14 @@ class CalculadoraCientificaFrame(ctk.CTkFrame):
         # Reemplazar nombres de funciones y corregir instancias como 3x a 3*x
         funcion_modificada = funcion_modificada.replace('sen', 'sin').replace('√', 'sqrt').replace('^', '**')
 
-        # Reemplazar 'logb' con base arbitraria, por 'log(x, base)' para logaritmo con base
-        # Esto asume que 'logb' es seguido por la base entre paréntesis
-        funcion_modificada = re.sub(r'logb\((.*?)\)', r'log(\1)', funcion_modificada)
 
         # Reemplazar 'log' para convertir a logaritmo natural con base e
         funcion_modificada = re.sub(r'log\((.*?)\)', r'log(\1)', funcion_modificada)
 
         # Añadir un operador * entre número y variable (por ejemplo, 3x -> 3*x)
         funcion_modificada = re.sub(r'(\d)([a-zA-Z])', r'\1*\2', funcion_modificada)
+        
+        funcion_modificada = re.sub(r'log(\d+)\(([^)]+)\)', r'log(\2, \1)', funcion_modificada)
 
         return funcion_modificada
 

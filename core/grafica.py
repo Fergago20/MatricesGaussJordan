@@ -12,11 +12,11 @@ def inicio_grafica(ecuacion):
     # Convertir la ecuación a una función callable
     funcion_callable = pasar_funcion_a_callable(ecuacion)
     
-    # Definir el rango fijo de x (como en tu código original)
-    x = np.linspace(0, 10, 1000)
-    
+    # Definir el rango de x, evitando los valores problemáticos (por ejemplo, x <= 0 para log(x))
+    x = np.linspace(0.1, 10, 1000)  # Evitar el log(0) o valores negativos
+
     # Calcular y usando la función callable (vectorizada para eficiencia)
-    y = np.vectorize(funcion_callable)(x)
+    y = np.vectorize(lambda x: manejar_valores_invalidos(funcion_callable(x)))(x)
     
     # Crear la gráfica
     plt.figure(figsize=(10, 6))
@@ -29,6 +29,12 @@ def inicio_grafica(ecuacion):
     plt.grid(True)
     plt.legend()
     plt.show()
+
+def manejar_valores_invalidos(resultado):
+    """Maneja valores inválidos o complejos y los convierte en NaN."""
+    if isinstance(resultado, complex) or np.isnan(resultado) or np.isinf(resultado):
+        return np.nan  # Devuelve NaN para valores complejos o indefinidos
+    return resultado
 
 def mostrar_ecuacion_latex(ecuacion_str):
     """Muestra la ecuación en formato LaTeX dentro de un canvas."""
