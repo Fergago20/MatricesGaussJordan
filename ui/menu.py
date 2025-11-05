@@ -6,6 +6,7 @@ from ui.estilos import FONDO_MENU, TEXTO_BLANCO, FUENTE_TITULO, FUENTE_SUBTITULO
 from ui.resolver_sistemas_app import AppResolverSistemas   # ✅ nuevo archivo unificado
 from ui.matrices_app import AppMatrices
 from ui.app_vectores import AppIndependenciaLineal
+from ui.Met_numericos import  AppMetodosNumericos
 
 def mostrar_menu():
     root = tk.Tk()
@@ -19,7 +20,7 @@ def mostrar_menu():
 
     titulo = tk.Label(
         centro,
-        text="Sistemas de Ecuaciones y Operaciones con Matrices",
+        text="Sistemas de Ecuaciones, Operaciones con Matrices y Métodos Numéricos",
         fg=TEXTO_BLANCO, bg=FONDO_MENU, font=FUENTE_TITULO
     )
     titulo.pack(pady=(10, 6))
@@ -35,6 +36,7 @@ def mostrar_menu():
     img_resolver = cargar_y_escalar(ruta_recurso(os.path.join("imagenes", "gauss_gaussjordan.png")))  # ✅ nueva imagen
     img_mat = cargar_y_escalar(ruta_recurso(os.path.join("imagenes", "OperacionesMatrices.png")))
     img_vectores = cargar_y_escalar(ruta_recurso(os.path.join("imagenes", "Vectores.png")))
+    img_numericos = cargar_y_escalar(ruta_recurso(os.path.join("imagenes", "MetodoNumerico.png")))
 
     # --- ACCIONES ---
     def volver_desde_hijas():
@@ -68,9 +70,17 @@ def mostrar_menu():
         lambda: abrir_modulo(AppIndependenciaLineal)
     ).grid(row=0, column=2, padx=28, pady=8)
 
+    BotonCard(
+        fila,
+        "Métodos Numéricos",
+        img_numericos,
+        lambda: abrir_modulo(AppMetodosNumericos)
+    ).grid(row=0, column=3, padx=28, pady=8)
+
     def abrir_modulo(AppClase):
         root.withdraw()
         AppClase(toplevel_parent=root, on_volver=volver_desde_hijas)
+    
 
     root.protocol("WM_DELETE_WINDOW", root.destroy)
     root.mainloop()
