@@ -118,11 +118,95 @@ class CalculadoraCientificaFrame(ctk.CTkFrame):
     def al_presionar_boton(self, texto):
         self.parent_textbox.insert("insert", texto)
 
+
     def obtener_funcion(self):
-        f = self.parent_textbox.get()
-        f = f.replace('²', '**2').replace('³', '**3').replace('sen', 'sin').replace('√', 'sqrt').replace('^', '**')
-        f = re.sub(r'(\d)([a-zA-Z])', r'\1*\2', f)
+        f = self.parent_textbox.get().strip()
+
+        # ---------------------------
+        # Reemplazos básicos
+        # ---------------------------
+        f = (f.replace('²', '**2')
+            .replace('³', '**3')
+            .replace('sen', 'sin')
+            .replace('^', '**'))
+
+        # ---------------------------
+        # 1) Unicode √ con o sin índice → sqrt o root
+        # ---------------------------
+
+        # √[n](expr) -> sqrt(expr) si n==2, si no -> root(expr, n)
+        def _repl_rad_n(m):
+            n = m.group(1)
+            expr = m.group(2)
+            return f"sqrt({expr})" if n == '2' else f"root({expr}, {n})"
+
+        f = re.sub(r'√\s*\[\s*(\d+)\s*\]\s*\(\s*([^)]+?)\s*\)', _repl_rad_n, f)
+
+        # √(expr) -> sqrt(expr) (cuadrada por defecto)
+        f = re.sub(r'√\s*\(\s*([^)]+?)\s*\)', r'sqrt(\1)', f)
+
+        # ---------------------------
+        # 2) sqrt(...) y cbrt(...) → destino
+        # ---------------------------
+
+        # Caso A: sqrt(n, expr) -> sqrt(expr) si n==2; si no -> root(expr, n)
+        def _repl_sqrt_n_expr(m):
+            n = m.group(1)
+            expr = m.group(2)
+            return f"sqrt({expr})" if n == '2' else f"root({expr}, {n})"
+
+        f = re.sub(r'sqrt\(\s*(\d+)\s*,\s*([^)]+?)\s*\)', _repl_sqrt_n_expr, f)
+
+        # Caso B: sqrt(expr, n) -> sqrt(expr) si n==2; si no -> root(expr, n)
+        def _repl_sqrt_expr_n(m):
+            expr = m.group(1)
+            n = m.group(2)
+            return f"sqrt({expr})" if n == '2' else f"root({expr}, {n})"
+
+        f = re.sub(r'sqrt\(\s*([^)]+?)\s*,\s*(\d+)\s*\)', _repl_sqrt_expr_n, f)
+
+        # cbrt(expr) -> root(expr, 3)
+        f = re.sub(r'cbrt\(\s*([^)]+?)\s*\)', r'root(\1, 3)', f)
+
+        # Nota: sqrt(expr) simple se deja tal cual (raíz cuadrada)
+
+        # ---------------------------
+        # 3) Potencias fraccionarias **(1/n) → sqrt o root
+        # ---------------------------
+
+        # Arregla precedencia: **1/n -> **(1/n)
+        f = re.sub(r'\*\*\s*1\s*/\s*(\d+)', r'**(1/\1)', f)
+
+        # (base)**(1/n) -> sqrt(base) si n==2; si no -> root(base, n)
+        def _repl_pow_paren(m):
+            base = m.group(1)
+            n = m.group(2)
+            return f"sqrt({base})" if n == '2' else f"root({base}, {n})"
+
+        f = re.sub(r'\(\s*([^\(\)]+?)\s*\)\s*\*\*\s*\(\s*1\s*/\s*(\d+)\s*\)', _repl_pow_paren, f)
+
+        # base_simple**(1/n) -> sqrt(base_simple) si n==2; si no -> root(base_simple, n)
+        def _repl_pow_simple(m):
+            base = m.group(1)
+            n = m.group(2)
+            return f"sqrt({base})" if n == '2' else f"root({base}, {n})"
+
+        f = re.sub(
+            r'([A-Za-z_]\w*(?:\([^\)]*\))?|\d+(?:\.\d+)?)\s*\*\*\s*\(\s*1\s*/\s*(\d+)\s*\)',
+            _repl_pow_simple,
+            f
+        )
+
+        # ---------------------------
+        # 4) Multiplicación implícita básica
+        # ---------------------------
+        # 2x -> 2*x, 2( -> 2*(, )( -> )*(, )x -> )*x
+        f = re.sub(r'(\d)\s*([a-zA-Z\(])', r'\1*\2', f)
+        f = re.sub(r'(\))\s*([a-zA-Z\(])', r'\1*\2', f)
+        print(f)
         return f
+
+
 
 
 # ============================================================
