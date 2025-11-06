@@ -4,7 +4,7 @@ import customtkinter as ctk
 import sympy as sp
 import re
 from sympy import symbols, pi, E
-from core.biserccion import calcular_biseccion as metodo_biseccion
+from core.biserccion import metodo_biseccion
 from core.grafica import inicio_grafica as graficar_funcion
 from ui.estilos import (
     GAUSS_FONDO as MN_FONDO,
@@ -119,10 +119,7 @@ class CalculadoraCientificaFrame(ctk.CTkFrame):
         self.parent_textbox.insert("insert", texto)
 
     def obtener_funcion(self):
-        f = self.parent_textbox.get()
-        f = f.replace('²', '**2').replace('³', '**3').replace('sen', 'sin').replace('√', 'sqrt').replace('^', '**')
-        f = re.sub(r'(\d)([a-zA-Z])', r'\1*\2', f)
-        return f
+        return self.parent_textbox.get().strip()
 
 
 # ============================================================
