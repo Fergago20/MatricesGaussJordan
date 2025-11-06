@@ -288,25 +288,6 @@ class AppMetodosNumericos(BaseApp):
         # ------------------------------------------------------
         # 🔹 VERIFICAR SIGNOS EN LOS EXTREMOS DEL INTERVALO
         # ------------------------------------------------------
-        try:
-            x = sp.symbols('x')
-            f = sp.lambdify(x, sp.sympify(ecuacion), "math")
-            fa = f(a)
-            fb = f(b)
-            if fa * fb > 0:
-                messagebox.showerror(
-                    "Intervalo inválido",
-                    "No se puede aplicar el método de bisección:\n"
-                    "la función no cambia de signo en el intervalo [a, b]."
-                )
-                return
-        except Exception:
-            messagebox.showerror(
-                "Error de evaluación",
-                "No se pudo evaluar la función en los valores del intervalo.\n"
-                "Revisa la ecuación ingresada y asegúrate de que sea continua en [a, b]."
-            )
-            return
 
         # ------------------------------------------------------
         # 🔹 CÁLCULO DEL MÉTODO DE BISECCIÓN

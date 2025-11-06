@@ -1,101 +1,136 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import sympy as sp
-import math
+import re
 
-
-def limpiar_ecuacion(ecuacion_str):
-    """Normaliza expresiones comunes (ln, e^x, ^ → **, etc.)"""
-    reemplazos = {
-        '^': '**',
-        'ln(': 'log(',
-        'e^': 'exp(',
-        '√': 'sqrt(',
-        '÷': '/',
-    }
-    for viejo, nuevo in reemplazos.items():
-        ecuacion_str = ecuacion_str.replace(viejo, nuevo)
-    return ecuacion_str
-
-
-def pasar_funcion_a_callable(ecuacion_str):
+# ==============================
+# Limpieza y parsing seguro
+# ==============================
+def limpiar_ecuacion(ecuacion_str: str) -> str:
     """
-    Convierte una ecuación en string a una función numpy-safe.
-    Admite expresiones como ln(x), e^x, cos(x), etc.
-    También limpia ecuaciones del tipo 'f(x)=0'.
+    Normaliza lo mínimo para Sympy:
+    - Elimina '=0' al final si existe.
+    - ^ -> ** (potencias).
+    - √x -> sqrt(x) y '÷' -> '/'.
+    Nota: 'ln' y 'log' quedan como log natural. 'e' se mapea a sp.E.
+    """
+    s = ecuacion_str.strip()
+    s = re.sub(r'\s*=+\s*0\s*$', '', s)   # quita '=0' al final
+    s = s.replace('^', '**')
+    s = re.sub(r'√\s*([a-zA-Z0-9_.]+)', r'sqrt(\1)', s)  # √x -> sqrt(x)
+    s = s.replace('√(', 'sqrt(')
+    s = s.replace('÷', '/')
+    return s
+
+def pasar_funcion_a_callable(ecuacion_str: str):
+    """
+    Convierte la ecuación a f(x) 'numpy-safe'.
+    Acepta: ln/log (natural), sin/cos/tan, sqrt, etc.
     """
     x = sp.symbols('x')
-    try:
-        # 🔹 Limpieza adicional
-        ecuacion_str = ecuacion_str.strip()
-        ecuacion_str = ecuacion_str.replace("=0", "").strip()  # elimina el =0 si existe
-        ecuacion_str = limpiar_ecuacion(ecuacion_str)  # normaliza ln, e^x, etc.
+    s = limpiar_ecuacion(ecuacion_str)
+    local_dict = {
+        'x': x,
+        'e': sp.E, 'E': sp.E,
+        'ln': sp.log,   # por si escriben ln(x)
+        'log': sp.log,  # log natural
+        'sen': sp.sin,  # alias en español
+        'tg': sp.tan
+    }
+    expr = sp.sympify(s, locals=local_dict)
+    f = sp.lambdify(x, expr, modules=['numpy'])
+    # check mínima
+    _ = f(0.0)  # no importa si da nan, solo que la llamada funcione
+    return f, str(expr)
 
-        expr = sp.sympify(ecuacion_str, convert_xor=True)
-        return sp.lambdify(x, expr, modules=['numpy'])
-    except Exception as e:
-        raise ValueError(f"No se pudo interpretar la ecuación '{ecuacion_str}': {e}")
+# ==============================
+# Utilidades numéricas/gráficas
+# ==============================
+def _limpiar_y(y: np.ndarray) -> np.ndarray:
+    """Convierte complejos/infinitos en NaN y se queda con parte real."""
+    y = np.array(y, dtype=np.complex128)
+    y = np.where(np.abs(y.imag) > 1e-12, np.nan, y.real)
+    y = np.where(~np.isfinite(y), np.nan, y)
+    return y
 
-
-def manejar_valores_invalidos(y):
-    """Convierte valores complejos, infinitos o indefinidos a NaN."""
-    try:
-        if np.isnan(y) or np.isinf(y):
-            return np.nan
-        if isinstance(y, complex):
-            return np.nan
-        return y
-    except Exception:
-        return np.nan
-
-
-def inicio_grafica(ecuacion):
+def _ajustar_limites_y(y: np.ndarray, margen=0.1):
     """
-    Grafica la función ingresada en un rango adaptativo [-10, 10].
-    Maneja errores y valores inválidos de forma segura.
+    Limita el eje Y con percentiles (5–95) para evitar que una asíntota
+    arruine la escala. Si todo es NaN, usa (-1,1).
     """
-    try:
-        # Crear función evaluable
-        f = pasar_funcion_a_callable(ecuacion)
-    except Exception as e:
-        import tkinter.messagebox as messagebox
-        messagebox.showerror("Error de ecuación", f"No se pudo interpretar la ecuación:\n\n{e}")
-        return
+    yv = y[np.isfinite(y)]
+    if yv.size == 0:
+        return (-1, 1)
+    p5, p95 = np.percentile(yv, [5, 95])
+    if p5 == p95:
+        p5 -= 1
+        p95 += 1
+    r = p95 - p5
+    return (p5 - margen*r, p95 + margen*r)
 
-    # Determinar rango inteligente
-    # Si hay log o sqrt, evitamos x ≤ 0
-    ecuacion_lower = ecuacion.lower()
-    if "log" in ecuacion_lower or "ln" in ecuacion_lower or "sqrt" in ecuacion_lower:
-        x = np.linspace(0.01, 10, 800)
-    else:
-        x = np.linspace(-10, 10, 800)
+def _elegir_rango_x(expr_str: str, preferencia=None):
+    """
+    Heurística simple del rango X:
+    - Si el usuario pasa (xmin, xmax) en preferencia, usarlo.
+    - Si la expresión contiene log/sqrt, usar [0.01, 10].
+    - En otro caso, [-10, 10].
+    """
+    if preferencia and len(preferencia) == 2:
+        return float(preferencia[0]), float(preferencia[1])
 
-    # Calcular f(x) y limpiar valores problemáticos
-    try:
-        y = f(x)
-        y = np.vectorize(manejar_valores_invalidos)(y)
-    except Exception as e:
-        import tkinter.messagebox as messagebox
-        messagebox.showerror("Error al graficar", f"No se pudo evaluar la función:\n\n{e}")
-        return
+    s = expr_str.lower()
+    if ("log" in s) or ("sqrt" in s):
+        return (0.01, 10.0)
+    return (-10.0, 10.0)
 
-    # Crear gráfica
-    plt.figure(figsize=(9, 6))
-    plt.plot(x, y, color='blue', label=f"f(x) = {ecuacion}")
-    plt.axhline(0, color='black', linewidth=0.8, linestyle='--')
-    plt.axvline(0, color='black', linewidth=0.8, linestyle='--')
-    plt.title(f"Gráfica de la función: {ecuacion}", fontsize=13)
-    plt.xlabel("x")
-    plt.ylabel("f(x)")
-    plt.grid(True, linestyle='--', alpha=0.6)
-    plt.legend()
+# ==============================
+# Gráfica clara (solo función)
+# ==============================
+def inicio_grafica(ecuacion: str, rango_x=None, puntos=1600, titulo=None):
+    """
+    Dibuja f(x) con:
+      - Ejes X/Y marcados.
+      - Manejo de discontinuidades (sin unir a través de NaN).
+      - Escalado robusto del eje Y.
+    Params:
+      ecuacion: str, e.g. "ln(x) - 1", "e^x - 3", "x^3 - 4*x + 1"
+      rango_x: (xmin, xmax) opcional; si no, elige heurístico.
+      puntos: resolución del muestreo.
+      titulo: título opcional.
+    """
+    f, expr_str = pasar_funcion_a_callable(ecuacion)
+    x_min, x_max = _elegir_rango_x(expr_str, preferencia=rango_x)
+
+    x = np.linspace(x_min, x_max, int(puntos))
+    y = _limpiar_y(f(x))
+
+    # Evitar líneas a través de discontinuidades: máscara NaN
+    y_masked = np.ma.masked_invalid(y)
+
+    plt.figure(figsize=(9.5, 6.2))
+    plt.plot(x, y_masked, linewidth=2, label=f"f(x) = {expr_str}")
+
+    # Ejes
+    plt.axhline(0, color='black', linewidth=1, linestyle='--', alpha=0.7)
+    plt.axvline(0, color='black', linewidth=1, linestyle='--', alpha=0.7)
+
+    # Límites Y robustos
+    ymin, ymax = _ajustar_limites_y(y)
+    plt.ylim(ymin, ymax)
+    plt.xlim(x_min, x_max)
+
+    # Estética limpia
+    plt.grid(True, linestyle='--', alpha=0.5)
+    plt.xlabel("x", fontsize=11)
+    plt.ylabel("f(x)", fontsize=11)
+    plt.title(titulo or "Gráfica de la función", fontsize=13)
+    plt.legend(loc="best")
     plt.tight_layout()
     plt.show()
 
-
-def mostrar_ecuacion_latex(ecuacion_str):
-    """Muestra la ecuación en formato LaTeX (solo para propósitos didácticos)."""
-    fig, ax = plt.subplots()
-    ax.text(0.5, 0.5, f"${ecuacion_str}$", fontsize=20, ha='center', va='center')
-    ax.axis('off')
-    plt.show()
+# ==============================
+# Ejemplos (quitar o comentar)
+# ==============================
+# graficar_funcion("ln(x) - 1")              # log natural
+# graficar_funcion("e^x - 3")                # usa e = sp.E y ^ -> **
+# graficar_funcion("x^3 - 4*x + 1", (-3, 3)) # rango personalizado
