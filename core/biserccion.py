@@ -21,46 +21,79 @@ def punto_medio(a, b):
     return (a + b) / 2
 
 # ---------------------------
-# Normalización de la cadena
+# Normalización de la cadena (potencias y exponentes negativos)
 # ---------------------------
 def _normalizar_cadena(expr_str: str) -> str:
     """
-    Normaliza detalles de sintaxis en cadenas:
+    Normaliza detalles de sintaxis en cadenas para evitar ambigüedades con exponentes:
+      - '^' -> '**'
       - '÷' -> '/'
-      - Arregla precedencia: x**1/3 -> x**(1/3) para evitar (x**1)/3
-      - (opcional) puedes añadir: s = s.replace('^','**') si aceptas '^' como potencia
+      - Agrupa fracciones en exponentes: **1/3, **-1/2 -> **(1/3), **(-1/2)
+      - Envuelve exponentes negativos simples: **-2.5 -> **(-2.5), **-3 -> **(-3)
+      - Maneja también el caso escrito como x^-1/2 (tras convertir ^->**)
     """
-    s = expr_str.replace('÷', '/').strip()
-    # Corrige '**1/n' por '**(1/n)' respetando espacios
-    s = re.sub(r'\*\*\s*1\s*/\s*(\d+)', r'**(1/\1)', s)
+    s = expr_str.strip()
+    s = s.replace('÷', '/')
+    s = s.replace('^', '**')
+
+    # 1) Agrupar fracciones en exponentes: ** [sign]int / [sign]int  -> **(num/den)
+    #    Ej: x**1/3 -> x**(1/3), x**-1/2 -> x**(-1/2)
+    s = re.sub(r'\*\*\s*([+-]?\d+)\s*/\s*([+-]?\d+)', r'**(\1/\2)', s)
+
+    # 2) Envolver exponentes negativos decimales o enteros: **-2.5 -> **(-2.5), **-3 -> **(-3)
+    #    (Si ya está entre paréntesis no pasa nada, regex no lo toca)
+    s = re.sub(r'\*\*\s*-\s*(\d+(?:\.\d+)?)', r'**(-\1)', s)
+
+    # 3) Caso borde: espacios raros, p.ej. **   -  4  -> **(-4)
+    s = re.sub(r'\*\*\s*-\s*(\d+)\b', r'**(-\1)', s)
+
     return s
 
 # ---------------------------
 # Evaluación segura en un punto
 # ---------------------------
 def evaluar_en_punto(ecuacion_str, x_val, imag_tol=1e-12):
-    print(f"Evaluando '{ecuacion_str}' en x={x_val}...")
     """
-    Evalúa ecuación en x_val como número real cuando corresponde.
+    Evalúa la ecuación (string o expresión sympy) en x_val y devuelve un float real cuando corresponde.
     Reglas:
-      - root(a,n): si n impar -> real_root(a,n); si n par -> a**(1/n) (rama principal)
+      - root(a,n): n impar -> real_root(a,|n|) con signo; n par -> a**(1/n) (rama principal)
+        Si n < 0, se toma el recíproco: root(a,-n) = 1/root(a,n).
       - cbrt(a)  : real_root(a,3)
-      - ln       : log natural
-      - log      : log natural (si el usuario lo usa)
-    Si el resultado es complejo pero |Im| <= imag_tol, devuelve la parte real.
+      - ln/log   : log natural
+      - Acepta exponentes negativos en cualquier forma (enteros, fracciones y decimales).
+      - Si el resultado es complejo pero |Im| <= imag_tol, devuelve la parte real.
     """
+    print(f"Evaluando '{ecuacion_str}' en x={x_val}...")
     x = sp.symbols('x')
 
-    # Mapeo de root: real si n impar; potencia fraccionaria si n par
     def _root_real_or_pow(a, n):
+        """
+        Manejo robusto de raíces con índice potencialmente negativo o simbólico.
+        - n entero:
+            * n == 0: error
+            * n > 0: impar -> real_root(a,n), par -> a**(1/n)
+            * n < 0: 1 / root(a, |n|)
+        - n no entero literal: usar a**(1/n) simbólico.
+        """
+        # Intentar entero literal
         try:
             n_int = int(n)
-            if n_int % 2 == 1:           # impar -> raíz real (acepta a<0)
+            if n_int == 0:
+                raise ValueError("root(a, 0) no está definido.")
+            if n_int < 0:
+                # raíz con índice negativo: recíproco
+                n_pos = -n_int
+                if n_pos % 2 == 1:
+                    return 1 / sp.real_root(a, n_pos)
+                else:
+                    return 1 / (a**sp.Rational(1, n_pos))
+            # n_int > 0
+            if n_int % 2 == 1:
                 return sp.real_root(a, n_int)
-            else:                         # par -> potencia fraccionaria simbólica
+            else:
                 return a**sp.Rational(1, n_int)
         except Exception:
-            # Si n no es entero literal, usar exponente fraccionario simbólico
+            # n no es entero literal -> usar potencia fraccionaria simbólica
             return a**(sp.Rational(1, n))
 
     local_dict = {
@@ -71,7 +104,8 @@ def evaluar_en_punto(ecuacion_str, x_val, imag_tol=1e-12):
         'root': _root_real_or_pow,
         'cbrt': lambda a: sp.real_root(a, 3),
         'sen': sp.sin,      # alias comunes en ES
-        'tg': sp.tan
+        'tg': sp.tan,
+        'sqrt': sp.sqrt,
     }
 
     try:
@@ -82,13 +116,12 @@ def evaluar_en_punto(ecuacion_str, x_val, imag_tol=1e-12):
 
         expr = sp.sympify(ecuacion_normalizada, locals=local_dict)
         resultado = expr.subs(x, x_val)
-
-        # Evaluación numérica robusta
         resultado_eval = sp.N(resultado)
+
+        # Si es real o "casi real", devolver float
         if resultado_eval.is_real:
             return float(resultado_eval)
 
-        # Si es complejo con parte imaginaria "casi cero", toma la real
         if hasattr(resultado_eval, 'as_real_imag'):
             re_part, im_part = resultado_eval.as_real_imag()
             im_val = float(sp.N(im_part))
@@ -173,14 +206,22 @@ def calcular_biseccion(funcion, a, b, tol):
     return float(c), iteraciones, resultados
 
 # ---------------------------
-# PRUEBAS RÁPIDAS (comentar/usar)
+# PRUEBAS RÁPIDAS
 # ---------------------------
-# 1) Raíz cúbica real en negativos (root impar -> real_root)
-#print(evaluar_en_punto("root(x,3)", Fraction(-1,2)))   # ~ -0.7937005259
-# print(evaluar_en_punto("cbrt(x)", -0.5))               # ~ -0.7937005259
-
-# 2) Raíz cuadrada de negativo (root par -> potencia fracc. -> complejo -> error claro)
-# try:
-#     print(evaluar_en_punto("root(x,2)", -1))
-# except Exception as e:
-#     pri
+if __name__ == "__main__":
+    casos = [
+        "x^-2",           # ^ -> ** y exponente negativo entero
+        "x**-3",          # negativo entero
+        "x**-2.5",        # negativo decimal
+        "x**-1/2",        # fracción negativa sin paréntesis -> **(-1/2)
+        "x^-1/3",         # con ^ -> **(-1/3)
+        "root(x, -3)",    # raíz con índice negativo (recíproco de cúbica)
+        "root(-8, 3)",    # cúbica real de negativo
+        "root(-8, -3)",   # recíproco de cúbica real ( = -1/2 )
+        "root(x, 2)",     # raíz cuadrada (rama principal)
+    ]
+    for s in casos:
+        try:
+            print(s, "=>", evaluar_en_punto(s, 4))
+        except Exception as e:
+            print(s, "-> Error:", e)
