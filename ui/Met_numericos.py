@@ -128,82 +128,104 @@ class CalculadoraCientificaFrame(ctk.CTkFrame):
         f = (f.replace('²', '**2')
             .replace('³', '**3')
             .replace('sen', 'sin')
-            .replace('^', '**'))
+            .replace('^', '**')
+            .replace('÷', '/'))
 
         # ---------------------------
-        # 1) Unicode √ con o sin índice → sqrt o root
+        # 0) √ con/sin índice → sqrt(...) provisional
         # ---------------------------
-
-        # √[n](expr) -> sqrt(expr) si n==2, si no -> root(expr, n)
-        def _repl_rad_n(m):
-            n = m.group(1)
-            expr = m.group(2)
-            return f"sqrt({expr})" if n == '2' else f"root({expr}, {n})"
-
-        f = re.sub(r'√\s*\[\s*(\d+)\s*\]\s*\(\s*([^)]+?)\s*\)', _repl_rad_n, f)
-
-        # √(expr) -> sqrt(expr) (cuadrada por defecto)
+        # √[n](expr) -> sqrt(expr, n) (luego lo convertimos a root)
+        f = re.sub(r'√\s*\[\s*(\d+)\s*\]\s*\(\s*([^)]+?)\s*\)', r'sqrt(\2, \1)', f)
+        # √(expr) -> sqrt(expr)
         f = re.sub(r'√\s*\(\s*([^)]+?)\s*\)', r'sqrt(\1)', f)
 
         # ---------------------------
-        # 2) sqrt(...) y cbrt(...) → destino
+        # 1) Convertir sqrt(expr, n) a sqrt(..., n) también si el usuario lo escribió ya así
+        #    (no hace nada si no hay índice)
+        #    OJO: esto NO resuelve paréntesis anidados; lo hará el parser de más abajo
         # ---------------------------
-
-        # Caso A: sqrt(n, expr) -> sqrt(expr) si n==2; si no -> root(expr, n)
-        def _repl_sqrt_n_expr(m):
-            n = m.group(1)
-            expr = m.group(2)
-            return f"sqrt({expr})" if n == '2' else f"root({expr}, {n})"
-
-        f = re.sub(r'sqrt\(\s*(\d+)\s*,\s*([^)]+?)\s*\)', _repl_sqrt_n_expr, f)
-
-        # Caso B: sqrt(expr, n) -> sqrt(expr) si n==2; si no -> root(expr, n)
-        def _repl_sqrt_expr_n(m):
-            expr = m.group(1)
-            n = m.group(2)
-            return f"sqrt({expr})" if n == '2' else f"root({expr}, {n})"
-
-        f = re.sub(r'sqrt\(\s*([^)]+?)\s*,\s*(\d+)\s*\)', _repl_sqrt_expr_n, f)
-
-        # cbrt(expr) -> root(expr, 3)
-        f = re.sub(r'cbrt\(\s*([^)]+?)\s*\)', r'root(\1, 3)', f)
-
-        # Nota: sqrt(expr) simple se deja tal cual (raíz cuadrada)
+        # (lo dejamos tal cual; el paso clave es el parser de sqrt_index)
 
         # ---------------------------
-        # 3) Potencias fraccionarias **(1/n) → sqrt o root
+        # 2) Potencias fraccionarias **1/n → **(1/n) y luego sqrt/root
         # ---------------------------
-
-        # Arregla precedencia: **1/n -> **(1/n)
+        # Arregla precedencia: x**1/3 -> x**(1/3)
         f = re.sub(r'\*\*\s*1\s*/\s*(\d+)', r'**(1/\1)', f)
 
-        # (base)**(1/n) -> sqrt(base) si n==2; si no -> root(base, n)
         def _repl_pow_paren(m):
-            base = m.group(1)
-            n = m.group(2)
+            base = m.group(1); n = m.group(2)
             return f"sqrt({base})" if n == '2' else f"root({base}, {n})"
 
+        # (base)**(1/n)
         f = re.sub(r'\(\s*([^\(\)]+?)\s*\)\s*\*\*\s*\(\s*1\s*/\s*(\d+)\s*\)', _repl_pow_paren, f)
 
-        # base_simple**(1/n) -> sqrt(base_simple) si n==2; si no -> root(base_simple, n)
         def _repl_pow_simple(m):
-            base = m.group(1)
-            n = m.group(2)
+            base = m.group(1); n = m.group(2)
             return f"sqrt({base})" if n == '2' else f"root({base}, {n})"
 
-        f = re.sub(
-            r'([A-Za-z_]\w*(?:\([^\)]*\))?|\d+(?:\.\d+)?)\s*\*\*\s*\(\s*1\s*/\s*(\d+)\s*\)',
-            _repl_pow_simple,
-            f
-        )
+        # base_simple**(1/n)
+        f = re.sub(r'([A-Za-z_]\w*(?:\([^\)]*\))?|\d+(?:\.\d+)?)\s*\*\*\s*\(\s*1\s*/\s*(\d+)\s*\)',
+                _repl_pow_simple, f)
 
         # ---------------------------
-        # 4) Multiplicación implícita básica
+        # 3) Parser: convertir sqrt(expr, n) (con paréntesis anidados) → root(expr, n)
+        # ---------------------------
+        def _convert_sqrt_with_index(s: str) -> str:
+            out = []
+            i = 0
+            L = len(s)
+            while i < L:
+                if s.startswith('sqrt(', i):
+                    # buscar cierre y coma al nivel 1
+                    j = i + 5  # pos después de 'sqrt('
+                    depth = 1
+                    comma_pos = None
+                    while j < L and depth > 0:
+                        c = s[j]
+                        if c == '(':
+                            depth += 1
+                        elif c == ')':
+                            depth -= 1
+                        elif c == ',' and depth == 1 and comma_pos is None:
+                            comma_pos = j
+                        j += 1
+                    if depth == 0:
+                        inner = s[i+5:j-1]  # contenido dentro de sqrt(...)
+                        if comma_pos is not None:
+                            expr = s[i+5:comma_pos].strip()
+                            n = s[comma_pos+1:j-1].strip()
+                            # si n==2 dejamos sqrt; si no, root
+                            if n == '2':
+                                out.append(f"sqrt({expr})")
+                            else:
+                                out.append(f"root({expr}, {n})")
+                        else:
+                            out.append(f"sqrt({inner})")
+                        i = j  # saltar todo el bloque
+                        continue
+                out.append(s[i])
+                i += 1
+            return ''.join(out)
+
+        f = _convert_sqrt_with_index(f)
+
+        # ---------------------------
+        # 4) Coma decimal entre dígitos -> punto (hacer DESPUÉS del paso anterior)
+        # ---------------------------
+        # Esto evita convertir la coma que separa el índice: sqrt(expr,5)
+        f = re.sub(r'(?<=\d),(?=\d)', '.', f)
+
+        # ---------------------------
+        # 5) Multiplicación implícita básica
         # ---------------------------
         # 2x -> 2*x, 2( -> 2*(, )( -> )*(, )x -> )*x
-        f = re.sub(r'(\d)\s*([a-zA-Z\(])', r'\1*\2', f)
-        f = re.sub(r'(\))\s*([a-zA-Z\(])', r'\1*\2', f)
-        print(f)
+        f = re.sub(r'(\d)\s*([A-Za-z\(])', r'\1*\2', f)
+        f = re.sub(r'(\))\s*([A-Za-z\(])', r'\1*\2', f)
+
+        # Opcional: variable seguida de sqrt/root sin operador: x sqrt(...) -> x*sqrt(...)
+        f = re.sub(r'([A-Za-z_]\w*)\s*(?=sqrt\()', r'\1*', f)
+        f = re.sub(r'([A-Za-z_]\w*)\s*(?=root\()', r'\1*', f)
+
         return f
 
 
