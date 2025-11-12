@@ -19,8 +19,9 @@ from ui.estilos import (
     FUENTE_SUBTITULO
 )
 from soporte.base_app import BaseApp
-
-
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from sympy import latex as sp_latex
 
 # ============================================================
 #   CALCULADORA CIENTÍFICA (teclado)
@@ -46,6 +47,12 @@ class CalculadoraCientificaFrame(ctk.CTkFrame):
 
         self.frame_izquierdo = ctk.CTkFrame(self.frame_inferior, fg_color="#6889AA")
         self.frame_izquierdo.pack(side="left", fill="y", expand=True, padx=5, pady=5)
+
+        # Densidad del grid del lado derecho (teclado)
+        for r in range(5):
+            self.frame_derecho.grid_rowconfigure(r, weight=1)
+        for c in range(4):
+            self.frame_derecho.grid_columnconfigure(c, weight=1)
 
         self.categorias = {
             "Trigonometría": ['sen', 'cos', 'tan', 'sec'],
@@ -80,6 +87,14 @@ class CalculadoraCientificaFrame(ctk.CTkFrame):
     def mostrar_botones_categoria(self, nombre_categoria):
         for w in self.categoria_botones_frame.winfo_children():
             w.destroy()
+
+        # estirar columnas 0..2
+        try:
+            self.categoria_botones_frame.grid_columnconfigure((0, 1, 2), weight=1)
+        except Exception:
+            for i in (0, 1, 2):
+                self.categoria_botones_frame.grid_columnconfigure(i, weight=1)
+
         for idx, texto in enumerate(self.categorias[nombre_categoria]):
             ctk.CTkButton(
                 self.categoria_botones_frame,
@@ -97,11 +112,12 @@ class CalculadoraCientificaFrame(ctk.CTkFrame):
                 fg_color=MN_BTN_BG, text_color=MN_BTN_FG,
                 hover_color=MN_BTN_BG_ACT,
                 command=lambda t=str(i): self.al_presionar_boton(t)
-            ).grid(row=(i - 1) // 3, column=(i - 1) % 3, padx=2, pady=2)
+            ).grid(row=(i - 1) // 3, column=(i - 1) % 3, padx=2, pady=2, sticky="nsew")
         ctk.CTkButton(self.frame_derecho, text="0",
                       command=lambda: self.al_presionar_boton("0"),
                       fg_color=MN_BTN_BG, text_color=MN_BTN_FG,
-                      hover_color=MN_BTN_BG_ACT).grid(row=3, column=0, padx=2, pady=2)
+                      hover_color=MN_BTN_BG_ACT)\
+            .grid(row=3, column=0, padx=2, pady=2, sticky="nsew")
 
     def crear_botones_aritmeticos(self):
         for i, op in enumerate(['+', '-', '*', '/']):
@@ -110,16 +126,15 @@ class CalculadoraCientificaFrame(ctk.CTkFrame):
                 fg_color=MN_BTN_BG, text_color=MN_BTN_FG,
                 hover_color=MN_BTN_BG_ACT,
                 command=lambda t=op: self.al_presionar_boton(t)
-            ).grid(row=i, column=3, padx=2, pady=2)
+            ).grid(row=i, column=3, padx=2, pady=2, sticky="nsew")
 
     def crear_boton_limpiar(self):
         ctk.CTkButton(self.frame_derecho, text="C",
                       command=lambda: self.parent_textbox.delete(0, 'end'),
-                      fg_color="#D9534F", text_color="white").grid(row=4, column=1, padx=2, pady=2)
+                      fg_color="#D9534F", text_color="white").grid(row=4, column=1, padx=2, pady=2, sticky="nsew")
 
     def al_presionar_boton(self, texto):
         self.parent_textbox.insert("insert", texto)
-
 
     def obtener_funcion(self):
         f = self.parent_textbox.get().strip()
@@ -128,10 +143,10 @@ class CalculadoraCientificaFrame(ctk.CTkFrame):
         # Reemplazos básicos
         # ---------------------------
         f = (f.replace('²', '**2')
-            .replace('³', '**3')
-            .replace('sen', 'sin')
-            .replace('^', '**')
-            .replace('÷', '/'))
+             .replace('³', '**3')
+             .replace('sen', 'sin')
+             .replace('^', '**')
+             .replace('÷', '/'))
 
         # ---------------------------
         # 0) √ con/sin índice → sqrt(...) provisional
@@ -140,13 +155,6 @@ class CalculadoraCientificaFrame(ctk.CTkFrame):
         f = re.sub(r'√\s*\[\s*(\d+)\s*\]\s*\(\s*([^)]+?)\s*\)', r'sqrt(\2, \1)', f)
         # √(expr) -> sqrt(expr)
         f = re.sub(r'√\s*\(\s*([^)]+?)\s*\)', r'sqrt(\1)', f)
-
-        # ---------------------------
-        # 1) Convertir sqrt(expr, n) a sqrt(..., n) también si el usuario lo escribió ya así
-        #    (no hace nada si no hay índice)
-        #    OJO: esto NO resuelve paréntesis anidados; lo hará el parser de más abajo
-        # ---------------------------
-        # (lo dejamos tal cual; el paso clave es el parser de sqrt_index)
 
         # ---------------------------
         # 2) Potencias fraccionarias **1/n → **(1/n) y luego sqrt/root
@@ -167,7 +175,7 @@ class CalculadoraCientificaFrame(ctk.CTkFrame):
 
         # base_simple**(1/n)
         f = re.sub(r'([A-Za-z_]\w*(?:\([^\)]*\))?|\d+(?:\.\d+)?)\s*\*\*\s*\(\s*1\s*/\s*(\d+)\s*\)',
-                _repl_pow_simple, f)
+                   _repl_pow_simple, f)
 
         # ---------------------------
         # 3) Parser: convertir sqrt(expr, n) (con paréntesis anidados) → root(expr, n)
@@ -178,8 +186,7 @@ class CalculadoraCientificaFrame(ctk.CTkFrame):
             L = len(s)
             while i < L:
                 if s.startswith('sqrt(', i):
-                    # buscar cierre y coma al nivel 1
-                    j = i + 5  # pos después de 'sqrt('
+                    j = i + 5
                     depth = 1
                     comma_pos = None
                     while j < L and depth > 0:
@@ -192,18 +199,17 @@ class CalculadoraCientificaFrame(ctk.CTkFrame):
                             comma_pos = j
                         j += 1
                     if depth == 0:
-                        inner = s[i+5:j-1]  # contenido dentro de sqrt(...)
+                        inner = s[i+5:j-1]
                         if comma_pos is not None:
                             expr = s[i+5:comma_pos].strip()
                             n = s[comma_pos+1:j-1].strip()
-                            # si n==2 dejamos sqrt; si no, root
                             if n == '2':
                                 out.append(f"sqrt({expr})")
                             else:
                                 out.append(f"root({expr}, {n})")
                         else:
                             out.append(f"sqrt({inner})")
-                        i = j  # saltar todo el bloque
+                        i = j
                         continue
                 out.append(s[i])
                 i += 1
@@ -212,25 +218,21 @@ class CalculadoraCientificaFrame(ctk.CTkFrame):
         f = _convert_sqrt_with_index(f)
 
         # ---------------------------
-        # 4) Coma decimal entre dígitos -> punto (hacer DESPUÉS del paso anterior)
+        # 4) Coma decimal entre dígitos -> punto
         # ---------------------------
-        # Esto evita convertir la coma que separa el índice: sqrt(expr,5)
         f = re.sub(r'(?<=\d),(?=\d)', '.', f)
 
         # ---------------------------
         # 5) Multiplicación implícita básica
         # ---------------------------
-        # 2x -> 2*x, 2( -> 2*(, )( -> )*(, )x -> )*x
         f = re.sub(r'(\d)\s*([A-Za-z\(])', r'\1*\2', f)
         f = re.sub(r'(\))\s*([A-Za-z\(])', r'\1*\2', f)
 
-        # Opcional: variable seguida de sqrt/root sin operador: x sqrt(...) -> x*sqrt(...)
+        # variable seguida de sqrt/root sin operador
         f = re.sub(r'([A-Za-z_]\w*)\s*(?=sqrt\()', r'\1*', f)
         f = re.sub(r'([A-Za-z_]\w*)\s*(?=root\()', r'\1*', f)
 
         return f
-
-
 
 
 # ============================================================
@@ -238,7 +240,7 @@ class CalculadoraCientificaFrame(ctk.CTkFrame):
 # ============================================================
 
 class AppMetodosNumericos(BaseApp):
-    """Interfaz visual con el método de bisección."""
+    """Interfaz visual para Bisección / Falsa Posición con layout compacto."""
     def __init__(self, toplevel_parent=None, on_volver=None):
         super().__init__(toplevel_parent, on_volver, titulo="Método de Bisección")
         self.configure(bg=MN_FONDO)
@@ -261,93 +263,158 @@ class AppMetodosNumericos(BaseApp):
         raiz = tk.Frame(self, bg=MN_FONDO)
         raiz.pack(fill="both", expand=True, padx=10, pady=10)
 
-        # ==== Ecuación ====
-        panel_ecuacion = tk.Frame(raiz, bg=MN_FONDO)
-        panel_ecuacion.pack(fill="x", pady=(5, 10))
-        tk.Label(panel_ecuacion, text="Ecuación:", font=FUENTE_SUBTITULO, bg=MN_FONDO, fg=MN_TEXTO).pack(side="left", padx=5)
-        self.entry_ecuacion_widget = tk.Entry(panel_ecuacion, textvariable=self.entry_ecuacion,
-                                              font=("Segoe UI", 14), width=50,
-                                              bg="white", fg="black", insertbackground="black")
-        self.entry_ecuacion_widget.pack(side="left", fill="x", expand=True, padx=5)
+        # ====== GRID maestro: 3 filas (0 controles, 1 tabla, 2 barra) ======
+        raiz.grid_rowconfigure(0, weight=0)
+        raiz.grid_rowconfigure(1, weight=1)
+        raiz.grid_rowconfigure(2, weight=0)
+        raiz.grid_columnconfigure(0, weight=1)
 
-        # ==== Calculadora científica ====
-        self.teclado_frame = CalculadoraCientificaFrame(raiz, self.entry_ecuacion_widget)
-        self.teclado_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        # ========== FILA 0: Controles (izq) + Teclado (der) ==========
+        fila0 = tk.Frame(raiz, bg=MN_FONDO)
+        fila0.grid(row=0, column=0, sticky="nsew")
+        fila0.grid_columnconfigure(0, weight=1)  # izquierda crece
+        fila0.grid_columnconfigure(1, weight=0)  # derecha ancho fijo
 
-        # ==== Intervalos y botones de acción ====
-        frame_intervalos = tk.Frame(raiz, bg=MN_FONDO)
-        frame_intervalos.pack(fill="x", pady=5)
+        # ---------- Columna izquierda ----------
+        col_izq = tk.Frame(fila0, bg=MN_FONDO)
+        col_izq.grid(row=0, column=0, sticky="nsew", padx=(0, 8), pady=2)
+        col_izq.grid_columnconfigure(0, weight=1)
 
-        # Intervalo inferior
-        tk.Label(frame_intervalos, text="Intervalo inferior (a):", bg=MN_FONDO, fg=MN_TEXTO).pack(side="left", padx=5)
-        tk.Entry(frame_intervalos, textvariable=self.entry_intervalo_inferior, font=("Segoe UI", 12),
-                 width=10, bg=MN_CAJA_BG, fg=MN_CAJA_FG, justify="center").pack(side="left", padx=5)
+        # Ecuación
+        panel_ecuacion = tk.Frame(col_izq, bg=MN_FONDO)
+        panel_ecuacion.grid(row=0, column=0, sticky="ew", pady=(2, 4))
+        panel_ecuacion.grid_columnconfigure(1, weight=1)
 
-        # Intervalo superior
-        tk.Label(frame_intervalos, text="Intervalo superior (b):", bg=MN_FONDO, fg=MN_TEXTO).pack(side="left", padx=5)
-        tk.Entry(frame_intervalos, textvariable=self.entry_intervalo_superior, font=("Segoe UI", 12),
-                 width=10, bg=MN_CAJA_BG, fg=MN_CAJA_FG, justify="center").pack(side="left", padx=5)
+        tk.Label(panel_ecuacion, text="Ecuación:", font=FUENTE_SUBTITULO,
+                 bg=MN_FONDO, fg=MN_TEXTO).grid(row=0, column=0, padx=5, sticky="w")
 
-        # Tolerancia
-        tk.Label(frame_intervalos, text="Tolerancia:", bg=MN_FONDO, fg=MN_TEXTO).pack(side="left", padx=5)
-        tk.Entry(frame_intervalos, textvariable=self.entry_tolerancia, font=("Segoe UI", 12),
-                 width=10, bg=MN_CAJA_BG, fg=MN_CAJA_FG, justify="center").pack(side="left", padx=5)
+        self.entry_ecuacion_widget = tk.Entry(
+            panel_ecuacion, textvariable=self.entry_ecuacion,
+            font=("Segoe UI", 14), width=1,
+            bg="white", fg="black", insertbackground="black"
+        )
+        self.entry_ecuacion_widget.grid(row=0, column=1, sticky="ew", padx=5)
 
-        # --- debajo de frame_intervalos.pack(...) ---
+        # Preview tipografiado compacto
+        panel_preview = tk.Frame(col_izq, bg=MN_FONDO)
+        panel_preview.grid(row=1, column=0, sticky="ew", pady=(2, 6))
 
-        # Selector de método
+        self.lbl_ok = tk.Label(panel_preview, text="", bg=MN_FONDO,
+                               fg="white", font=("Segoe UI", 12, "bold"))
+        self.lbl_ok.pack(anchor="w", padx=5, pady=(0, 2))
+
+        self._fig = Figure(figsize=(3.0, 0.5), dpi=100)  # compacto
+        self._ax = self._fig.add_subplot(111)
+        self._ax.axis("off")
+        self._canvas_preview = FigureCanvasTkAgg(self._fig, master=panel_preview)
+        cv = self._canvas_preview.get_tk_widget()
+        cv.pack(anchor="w", padx=5, fill="x")
+        try:
+            cv.configure(height=60)
+        except Exception:
+            pass
+
+        # Intervalos + Tolerancia
+        frame_intervalos = tk.Frame(col_izq, bg=MN_FONDO)
+        frame_intervalos.grid(row=2, column=0, sticky="ew", pady=(0, 4))
+        for i in range(6):
+            frame_intervalos.grid_columnconfigure(i, weight=1 if i % 2 else 0)
+
+        tk.Label(frame_intervalos, text="a:", bg=MN_FONDO, fg=MN_TEXTO)\
+            .grid(row=0, column=0, padx=5, sticky="e")
+        tk.Entry(frame_intervalos, textvariable=self.entry_intervalo_inferior,
+                 font=("Segoe UI", 12), width=10, bg=MN_CAJA_BG, fg=MN_CAJA_FG,
+                 justify="center").grid(row=0, column=1, padx=(0, 8), sticky="ew")
+
+        tk.Label(frame_intervalos, text="b:", bg=MN_FONDO, fg=MN_TEXTO)\
+            .grid(row=0, column=2, padx=5, sticky="e")
+        tk.Entry(frame_intervalos, textvariable=self.entry_intervalo_superior,
+                 font=("Segoe UI", 12), width=10, bg=MN_CAJA_BG, fg=MN_CAJA_FG,
+                 justify="center").grid(row=0, column=3, padx=(0, 8), sticky="ew")
+
+        tk.Label(frame_intervalos, text="Tol.:", bg=MN_FONDO, fg=MN_TEXTO)\
+            .grid(row=0, column=4, padx=5, sticky="e")
+        tk.Entry(frame_intervalos, textvariable=self.entry_tolerancia,
+                 font=("Segoe UI", 12), width=10, bg=MN_CAJA_BG, fg=MN_CAJA_FG,
+                 justify="center").grid(row=0, column=5, padx=(0, 8), sticky="ew")
+
+        # Método (radio)
+        frame_metodo = tk.Frame(col_izq, bg=MN_FONDO)
+        frame_metodo.grid(row=3, column=0, sticky="ew", pady=(0, 4))
+        tk.Label(frame_metodo, text="Método:", bg=MN_FONDO, fg=MN_TEXTO)\
+            .pack(side="left", padx=5)
         self.metodo_var = tk.StringVar(value="biseccion")
-        frame_metodo = tk.Frame(raiz, bg=MN_FONDO)
-        frame_metodo.pack(fill="x", pady=(5, 0))
-
-        tk.Label(frame_metodo, text="Método:", bg=MN_FONDO, fg=MN_TEXTO).pack(side="left", padx=5)
         tk.Radiobutton(frame_metodo, text="Bisección", variable=self.metodo_var, value="biseccion",
-                    bg=MN_FONDO, fg=MN_TEXTO, selectcolor=MN_FONDO, activebackground=MN_FONDO).pack(side="left", padx=5)
+                       bg=MN_FONDO, fg=MN_TEXTO, selectcolor=MN_FONDO,
+                       activebackground=MN_FONDO).pack(side="left", padx=5)
         tk.Radiobutton(frame_metodo, text="Falsa Posición", variable=self.metodo_var, value="falsa_posicion",
-                    bg=MN_FONDO, fg=MN_TEXTO, selectcolor=MN_FONDO, activebackground=MN_FONDO).pack(side="left", padx=5)
+                       bg=MN_FONDO, fg=MN_TEXTO, selectcolor=MN_FONDO,
+                       activebackground=MN_FONDO).pack(side="left", padx=5)
 
-        # --- Botones de acción (reemplaza los dos botones por este par) ---
-        tk.Button(frame_intervalos, text="Graficar Función",
-                command=lambda: graficar_funcion(self.teclado_frame.obtener_funcion()), **estilo_btn)\
-            .pack(side="right", padx=6)
+        # Botones de acción a la derecha
+        actions_frame = tk.Frame(col_izq, bg=MN_FONDO)
+        actions_frame.grid(row=4, column=0, sticky="ew", pady=(2, 6))
+        actions_frame.grid_columnconfigure(0, weight=1)
+        tk.Button(actions_frame, text="Graficar Función",
+                  command=lambda: graficar_funcion(self.teclado_frame.obtener_funcion()),
+                  **estilo_btn).grid(row=0, column=1, sticky="e", padx=6)
+        tk.Button(actions_frame, text="Calcular", command=self.calcular,
+                  **estilo_btn).grid(row=0, column=2, sticky="e", padx=6)
 
-        # Cambia a un único botón "Calcular" que despacha según el método elegido
-        tk.Button(frame_intervalos, text="Calcular", command=self.calcular, **estilo_btn)\
-            .pack(side="right", padx=6)
+        # Resultado compacto (wrap)
+        self.label_resultado = tk.Label(
+            col_izq,
+            text="Aún no se ha realizado ningún cálculo.",
+            font=("Segoe UI", 11, "bold"),
+            bg=MN_FONDO, fg=MN_TEXTO, anchor="w", justify="left",
+            wraplength=700
+        )
+        self.label_resultado.grid(row=5, column=0, sticky="ew", padx=4, pady=(0, 4))
 
+        # ---------- Columna derecha (teclado científico) ----------
+        col_der = tk.Frame(fila0, bg=MN_FONDO)
+        col_der.grid(row=0, column=1, sticky="ns")
+        self.teclado_frame = CalculadoraCientificaFrame(col_der, self.entry_ecuacion_widget)
+        self.teclado_frame.pack(fill="y", expand=False, padx=0, pady=0)
 
-        # ==== Tabla de iteraciones ====
+        # ========== FILA 1: Tabla (se expande) ==========
         panel_tabla = tk.Frame(raiz, bg=MN_FONDO)
-        panel_tabla.pack(fill="both", expand=True, pady=10)
-        tk.Label(panel_tabla, text="Iteraciones del Método de Bisección:", font=FUENTE_SUBTITULO,
-                 bg=MN_FONDO, fg=MN_TEXTO).pack(anchor="w", pady=5)
+        panel_tabla.grid(row=1, column=0, sticky="nsew", pady=(6, 0))
+        panel_tabla.grid_rowconfigure(1, weight=1)
+        panel_tabla.grid_columnconfigure(0, weight=1)
+
+        tk.Label(panel_tabla, text="Iteraciones:", font=FUENTE_SUBTITULO,
+                 bg=MN_FONDO, fg=MN_TEXTO).grid(row=0, column=0, sticky="w", pady=(0, 4), padx=2)
+
+        cont_tabla = tk.Frame(panel_tabla, bg=MN_FONDO)
+        cont_tabla.grid(row=1, column=0, sticky="nsew")
+        cont_tabla.grid_rowconfigure(0, weight=1)
+        cont_tabla.grid_columnconfigure(0, weight=1)
+
         columnas = ("Iteración", "a", "b", "c", "f(a)", "f(b)", "f(c)")
-        self.tree = ttk.Treeview(panel_tabla, columns=columnas, show="headings", height=10)
+        self.tree = ttk.Treeview(cont_tabla, columns=columnas, show="headings", height=12)
         for col in columnas:
             self.tree.heading(col, text=col)
             self.tree.column(col, width=110, anchor="center")
-        self.tree.pack(side="left", fill="both", expand=True)
-        scrollbar = ttk.Scrollbar(panel_tabla, orient="vertical", command=self.tree.yview)
-        self.tree.configure(yscrollcommand=scrollbar.set)
-        scrollbar.pack(side="right", fill="y")
+        self.tree.grid(row=0, column=0, sticky="nsew")
 
-        # ==== Resultado ====
-        self.label_resultado = tk.Label(
-            raiz,
-            text="Aún no se ha realizado ningún cálculo.",
-            font=("Segoe UI", 12, "bold"),
-            bg=MN_FONDO, fg=MN_TEXTO, anchor="w", justify="left"
-        )
-        self.label_resultado.pack(fill="x", padx=10, pady=(5, 10))
+        vsb = ttk.Scrollbar(cont_tabla, orient="vertical", command=self.tree.yview)
+        hsb = ttk.Scrollbar(cont_tabla, orient="horizontal", command=self.tree.xview)
+        self.tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
+        vsb.grid(row=0, column=1, sticky="ns")
+        hsb.grid(row=1, column=0, sticky="ew")
 
-        # ==== Barra inferior ====
+        # ==== Eventos iniciales preview ====
+        self.entry_ecuacion_widget.bind("<KeyRelease>", self._on_ecuacion_change)
+        self._on_ecuacion_change(None)
+
+        # ==== FILA 2: Barra inferior ====
         barra_inf = tk.Frame(raiz, bg=MN_FONDO)
-        barra_inf.pack(fill="x", pady=(5, 10))
+        barra_inf.grid(row=2, column=0, sticky="ew", pady=(6, 0))
         tk.Button(barra_inf, text="← Volver al menú", command=self._volver_al_menu, **estilo_btn)\
             .pack(side="left", padx=5)
 
     # ------------------------------------------------------------
-
     def calcular(self):
         """Ejecuta el método seleccionado (bisección o falsa posición) y muestra resultados."""
         # Limpiar tabla
@@ -359,7 +426,6 @@ class AppMetodosNumericos(BaseApp):
         a_str = self.entry_intervalo_inferior.get().strip()
         b_str = self.entry_intervalo_superior.get().strip()
 
-        # --- Validaciones básicas (reuso de las tuyas) ---
         if not ecuacion:
             messagebox.showwarning("Ecuación vacía", "Por favor, ingresa una ecuación antes de calcular.")
             return
@@ -399,17 +465,10 @@ class AppMetodosNumericos(BaseApp):
                 resultado, iteraciones, filas = metodo_biseccion(ecuacion, a, b, tol)
                 titulo = "Iteraciones del Método de Bisección:"
             else:
-                # 🚀 Falsa Posición (core.falsa_posicion)
                 resultado, iteraciones, filas = metodo_falsa_posicion(ecuacion, a, b, tol)
                 titulo = "Iteraciones del Método de Falsa Posición:"
 
-            # Actualiza el título de la tabla
-            # (busca el label más cercano; si prefieres, guarda una referencia al crearlo)
-            # Aquí una forma segura: reconfigura el último label antes del Treeview si lo tienes referenciado.
-            # Si guardas self.lbl_tabla, usa: self.lbl_tabla.config(text=titulo)
-            # Como alternativa, no toco el label y lo dejas neutral.
-
-            # Formato uniforme de filas: [iter, a, b, c, fa, fb, fc]
+            # Inserción normalizada (formato fijo de decimales)
             for fila in filas:
                 i, A, B, C, FA, FB, FC = fila
                 self.tree.insert("", "end", values=(
@@ -418,10 +477,16 @@ class AppMetodosNumericos(BaseApp):
                     f"{FA:.10f}", f"{FB:.10f}", f"{FC:.10f}",
                 ))
 
+            # Si filas trae error como último elemento en FC, evitamos romper:
+            try:
+                ultimo_fc = float(filas[-1][-1])
+            except Exception:
+                ultimo_fc = 0.0
+
             self.label_resultado.config(
                 text=f"{titulo.split(':')[0]} converge en {iteraciones} iteraciones.\n"
-                    f"Raíz aproximada: {resultado:.10f}\n"
-                    f"Margen de error: {abs(filas[-1][-1].__float__()):.6g}"
+                     f"Raíz aproximada: {resultado:.10f}\n"
+                     f"Margen de error: {abs(ultimo_fc):.6g}"
             )
 
         except Exception as e:
@@ -431,47 +496,32 @@ class AppMetodosNumericos(BaseApp):
             )
             self.label_resultado.config(text="Error: no se pudo completar el cálculo.")
 
+    # ------------------------------------------------------------
     def calcular_biseccion(self):
-        """Ejecuta el método de bisección y muestra los resultados con validaciones mejoradas."""
-        # Limpiar tabla
+        """Versión antigua (opcional) — mantenida por compatibilidad."""
         for item in self.tree.get_children():
             self.tree.delete(item)
 
-        ecuacion = self.teclado_frame.obtener_funcion().strip()
-        ecuacion = ecuacion.replace("=0", "").strip()  # 🔹 elimina el "=0" si lo escribieron
-
+        ecuacion = self.teclado_frame.obtener_funcion().strip().replace("=0", "").strip()
         tol_str = str(self.entry_tolerancia.get()).strip()
         a_str = self.entry_intervalo_inferior.get().strip()
         b_str = self.entry_intervalo_superior.get().strip()
 
-        # ------------------------------------------------------
-        # 🔹 VALIDACIONES DE CAMPOS VACÍOS
-        # ------------------------------------------------------
         if not ecuacion:
             messagebox.showwarning("Ecuación vacía", "Por favor, ingresa una ecuación antes de calcular.")
             return
-
         if not a_str or not b_str or not tol_str:
             messagebox.showwarning(
                 "Campos incompletos",
                 "Debes llenar los campos de intervalo inferior (a), intervalo superior (b) y tolerancia."
             )
             return
-
-        # ------------------------------------------------------
-        # 🔹 CONVERTIR A VALORES NUMÉRICOS
-        # ------------------------------------------------------
         try:
-            a = float(a_str)
-            b = float(b_str)
+            a = float(a_str); b = float(b_str)
         except ValueError:
-            messagebox.showerror(
-                "Error de formato",
-                "Los valores de los intervalos deben ser numéricos."
-            )
+            messagebox.showerror("Error de formato", "Los valores de los intervalos deben ser numéricos.")
             return
 
-        # Interpretar la tolerancia correctamente (permite 10^-4, 1e-3, etc.)
         try:
             tol = float(eval(tol_str, {"__builtins__": None}, {"e": 2.71828, "E": 2.71828, "pow": pow}))
         except Exception:
@@ -481,9 +531,6 @@ class AppMetodosNumericos(BaseApp):
             )
             return
 
-        # ------------------------------------------------------
-        # 🔹 VALIDAR LA ECUACIÓN SINTÁCTICAMENTE
-        # ------------------------------------------------------
         try:
             sp.sympify(ecuacion)
         except Exception:
@@ -493,13 +540,6 @@ class AppMetodosNumericos(BaseApp):
             )
             return
 
-        # ------------------------------------------------------
-        # 🔹 VERIFICAR SIGNOS EN LOS EXTREMOS DEL INTERVALO
-        # ------------------------------------------------------
-
-        # ------------------------------------------------------
-        # 🔹 CÁLCULO DEL MÉTODO DE BISECCIÓN
-        # ------------------------------------------------------
         try:
             resultado, iteraciones, filas = metodo_biseccion(ecuacion, a, b, tol)
 
@@ -518,3 +558,47 @@ class AppMetodosNumericos(BaseApp):
                 f"Ocurrió un problema al intentar ejecutar el método de bisección:\n\n{e}"
             )
             self.label_resultado.config(text="Error: no se pudo completar el cálculo.")
+
+    # ------------------------------------------------------------
+    def _on_ecuacion_change(self, event):
+        """
+        Lee el texto EXACTO del input, lo normaliza SOLO para parsear (sin modificar el input),
+        y si es válido, muestra el render tipografiado; si no, muestra aviso.
+        """
+        texto_usuario = self.entry_ecuacion_widget.get().strip()
+
+        if not texto_usuario:
+            self.lbl_ok.config(text="", bg=MN_FONDO)
+            self._render_preview(None)
+            return
+
+        try:
+            ecuacion_parseable = self.teclado_frame.obtener_funcion()
+        except Exception:
+            self.lbl_ok.config(text="⚠ Ecuación no válida", bg="#C27C0E")
+            self._render_preview(None)
+            return
+
+        try:
+            expr = sp.sympify(ecuacion_parseable)
+            tex = sp_latex(expr)
+            self.lbl_ok.config(text="✓ Ecuación válida", bg="#198754")
+            self._render_preview(tex)
+        except Exception:
+            self.lbl_ok.config(text="⚠ Ecuación no válida", bg="#C27C0E")
+            self._render_preview(None)
+
+    def _render_preview(self, tex_or_none: str | None):
+        """
+        Dibuja el LaTeX en el Figure embebido.
+        Si tex_or_none es None, limpia el lienzo.
+        """
+        self._ax.clear()
+        self._ax.axis("off")
+
+        if tex_or_none:
+            self._ax.text(0.01, 0.5, f"${tex_or_none}$",
+                          va="center", ha="left", fontsize=16)
+            self._fig.subplots_adjust(left=0.02, right=0.98, top=0.95, bottom=0.05)
+
+        self._canvas_preview.draw_idle()
