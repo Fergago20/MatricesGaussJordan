@@ -208,15 +208,3 @@ def inicio_grafica(ecuacion: str, rango_x=None, puntos=1600, titulo=None, amplia
     plt.legend(loc="best")
     plt.tight_layout()
     plt.show()
-
-# ==============================
-# PRUEBA
-# ==============================
-if __name__ == "__main__":
-    # Ejemplo de tu imagen: f(x) = quinta raíz de (x² / 2)
-    ecuacion = "√((x^2)/2,5)"
-    print("Entrada:", ecuacion)
-    f, expr = pasar_funcion_a_callable(ecuacion)
-    print("Normalizada:", expr)
-    print("f(-1) =", f(-1), ", f(1) =", f(1))
-    inicio_grafica(ecuacion, ampliar=2)

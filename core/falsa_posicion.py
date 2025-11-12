@@ -1,4 +1,4 @@
-from biserccion import valor_funcion, fraccion, evaluar_tolerancia
+from core.biserccion import valor_funcion, fraccion, evaluar_tolerancia
 
 def condicion1(fa, fb):
     return fa * fb < 0
@@ -25,7 +25,7 @@ def calcular_falsa_posicion(funcion, a, b, tol):
         raise ZeroDivisionError("fa y fb son iguales; no se puede aplicar falsa posición.")
 
     resultados = []
-    iteraciones = 0
+    iteraciones = -1
 
     while True:
         c = b - (fb * (a - b)) / (fa - fb)
@@ -47,5 +47,4 @@ def calcular_falsa_posicion(funcion, a, b, tol):
         else:                    
             a, fa = c, fc
 
-raiz, iters, tabla = calcular_falsa_posicion("cos(x) - x", 0, 1, 1e-10)
-print(raiz, iters)
+

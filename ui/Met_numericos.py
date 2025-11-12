@@ -5,6 +5,7 @@ import sympy as sp
 import re
 from sympy import symbols, pi, E
 from core.biserccion import calcular_biseccion as metodo_biseccion
+from core.falsa_posicion import calcular_falsa_posicion as metodo_falsa_posicion
 from core.grafica import inicio_grafica as graficar_funcion
 from ui.estilos import (
     GAUSS_FONDO as MN_FONDO,
@@ -18,6 +19,7 @@ from ui.estilos import (
     FUENTE_SUBTITULO
 )
 from soporte.base_app import BaseApp
+
 
 
 # ============================================================
@@ -232,7 +234,7 @@ class CalculadoraCientificaFrame(ctk.CTkFrame):
 
 
 # ============================================================
-#   INTERFAZ PRINCIPAL: Método de Bisección
+#   INTERFAZ PRINCIPAL: Métodos Numéricos
 # ============================================================
 
 class AppMetodosNumericos(BaseApp):
@@ -291,12 +293,28 @@ class AppMetodosNumericos(BaseApp):
         tk.Entry(frame_intervalos, textvariable=self.entry_tolerancia, font=("Segoe UI", 12),
                  width=10, bg=MN_CAJA_BG, fg=MN_CAJA_FG, justify="center").pack(side="left", padx=5)
 
-        # Botones Graficar y Calcular al lado derecho
+        # --- debajo de frame_intervalos.pack(...) ---
+
+        # Selector de método
+        self.metodo_var = tk.StringVar(value="biseccion")
+        frame_metodo = tk.Frame(raiz, bg=MN_FONDO)
+        frame_metodo.pack(fill="x", pady=(5, 0))
+
+        tk.Label(frame_metodo, text="Método:", bg=MN_FONDO, fg=MN_TEXTO).pack(side="left", padx=5)
+        tk.Radiobutton(frame_metodo, text="Bisección", variable=self.metodo_var, value="biseccion",
+                    bg=MN_FONDO, fg=MN_TEXTO, selectcolor=MN_FONDO, activebackground=MN_FONDO).pack(side="left", padx=5)
+        tk.Radiobutton(frame_metodo, text="Falsa Posición", variable=self.metodo_var, value="falsa_posicion",
+                    bg=MN_FONDO, fg=MN_TEXTO, selectcolor=MN_FONDO, activebackground=MN_FONDO).pack(side="left", padx=5)
+
+        # --- Botones de acción (reemplaza los dos botones por este par) ---
         tk.Button(frame_intervalos, text="Graficar Función",
-                  command=lambda: graficar_funcion(self.teclado_frame.obtener_funcion()), **estilo_btn)\
+                command=lambda: graficar_funcion(self.teclado_frame.obtener_funcion()), **estilo_btn)\
             .pack(side="right", padx=6)
-        tk.Button(frame_intervalos, text="Calcular Bisección", command=self.calcular_biseccion, **estilo_btn)\
+
+        # Cambia a un único botón "Calcular" que despacha según el método elegido
+        tk.Button(frame_intervalos, text="Calcular", command=self.calcular, **estilo_btn)\
             .pack(side="right", padx=6)
+
 
         # ==== Tabla de iteraciones ====
         panel_tabla = tk.Frame(raiz, bg=MN_FONDO)
@@ -329,6 +347,90 @@ class AppMetodosNumericos(BaseApp):
             .pack(side="left", padx=5)
 
     # ------------------------------------------------------------
+
+    def calcular(self):
+        """Ejecuta el método seleccionado (bisección o falsa posición) y muestra resultados."""
+        # Limpiar tabla
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+
+        ecuacion = self.teclado_frame.obtener_funcion().strip().replace("=0", "").strip()
+        tol_str = str(self.entry_tolerancia.get()).strip()
+        a_str = self.entry_intervalo_inferior.get().strip()
+        b_str = self.entry_intervalo_superior.get().strip()
+
+        # --- Validaciones básicas (reuso de las tuyas) ---
+        if not ecuacion:
+            messagebox.showwarning("Ecuación vacía", "Por favor, ingresa una ecuación antes de calcular.")
+            return
+        if not a_str or not b_str or not tol_str:
+            messagebox.showwarning(
+                "Campos incompletos",
+                "Debes llenar los campos de intervalo inferior (a), intervalo superior (b) y tolerancia."
+            )
+            return
+        try:
+            a = float(a_str); b = float(b_str)
+        except ValueError:
+            messagebox.showerror("Error de formato", "Los valores de los intervalos deben ser numéricos.")
+            return
+
+        try:
+            tol = float(eval(tol_str, {"__builtins__": None}, {"e": 2.71828, "E": 2.71828, "pow": pow}))
+        except Exception:
+            messagebox.showerror(
+                "Error en tolerancia",
+                "La tolerancia no es válida.\nEjemplo de formatos permitidos: 0.001, 1e-4, 10^-4."
+            )
+            return
+
+        try:
+            sp.sympify(ecuacion)
+        except Exception:
+            messagebox.showerror(
+                "Ecuación no válida",
+                "La ecuación ingresada no es válida.\nRevisa paréntesis, operadores o variables."
+            )
+            return
+
+        metodo = self.metodo_var.get()
+        try:
+            if metodo == "biseccion":
+                resultado, iteraciones, filas = metodo_biseccion(ecuacion, a, b, tol)
+                titulo = "Iteraciones del Método de Bisección:"
+            else:
+                # 🚀 Falsa Posición (core.falsa_posicion)
+                resultado, iteraciones, filas = metodo_falsa_posicion(ecuacion, a, b, tol)
+                titulo = "Iteraciones del Método de Falsa Posición:"
+
+            # Actualiza el título de la tabla
+            # (busca el label más cercano; si prefieres, guarda una referencia al crearlo)
+            # Aquí una forma segura: reconfigura el último label antes del Treeview si lo tienes referenciado.
+            # Si guardas self.lbl_tabla, usa: self.lbl_tabla.config(text=titulo)
+            # Como alternativa, no toco el label y lo dejas neutral.
+
+            # Formato uniforme de filas: [iter, a, b, c, fa, fb, fc]
+            for fila in filas:
+                i, A, B, C, FA, FB, FC = fila
+                self.tree.insert("", "end", values=(
+                    int(i),
+                    f"{A:.10f}", f"{B:.10f}", f"{C:.10f}",
+                    f"{FA:.10f}", f"{FB:.10f}", f"{FC:.10f}",
+                ))
+
+            self.label_resultado.config(
+                text=f"{titulo.split(':')[0]} converge en {iteraciones} iteraciones.\n"
+                    f"Raíz aproximada: {resultado:.10f}\n"
+                    f"Margen de error: {abs(filas[-1][-1].__float__()):.6g}"
+            )
+
+        except Exception as e:
+            messagebox.showerror(
+                "Error durante el cálculo",
+                f"Ocurrió un problema al ejecutar el método ({metodo.replace('_', ' ')}):\n\n{e}"
+            )
+            self.label_resultado.config(text="Error: no se pudo completar el cálculo.")
+
     def calcular_biseccion(self):
         """Ejecuta el método de bisección y muestra los resultados con validaciones mejoradas."""
         # Limpiar tabla
