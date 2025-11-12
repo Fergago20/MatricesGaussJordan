@@ -55,11 +55,14 @@ def _normalizar_cadena(expr_str: str) -> str:
 def evaluar_en_punto(ecuacion_str, x_val, imag_tol=1e-12):
     """
     Evalúa la ecuación (string o expresión sympy) en x_val y devuelve un float real cuando corresponde.
-    Reglas:
+
+    Reglas especiales:
       - root(a,n): n impar -> real_root(a,|n|) con signo; n par -> a**(1/n) (rama principal)
         Si n < 0, se toma el recíproco: root(a,-n) = 1/root(a,n).
       - cbrt(a)  : real_root(a,3)
-      - ln/log   : log natural
+      - ln(x)    : logaritmo natural, base e
+      - log(x)   : log base 10
+      - log(x,b) : logaritmo base b (b cualquier número)
       - Acepta exponentes negativos en cualquier forma (enteros, fracciones y decimales).
       - Si el resultado es complejo pero |Im| <= imag_tol, devuelve la parte real.
     """
@@ -75,7 +78,6 @@ def evaluar_en_punto(ecuacion_str, x_val, imag_tol=1e-12):
             * n < 0: 1 / root(a, |n|)
         - n no entero literal: usar a**(1/n) simbólico.
         """
-        # Intentar entero literal
         try:
             n_int = int(n)
             if n_int == 0:
@@ -91,37 +93,63 @@ def evaluar_en_punto(ecuacion_str, x_val, imag_tol=1e-12):
             if n_int % 2 == 1:
                 return sp.real_root(a, n_int)
             else:
-                return a**sp.Rational(1, n_int)
+                return a**(sp.Rational(1, n_int))
         except Exception:
             # n no es entero literal -> usar potencia fraccionaria simbólica
             return a**(sp.Rational(1, n))
 
+    def _log_personalizado(*args):
+        """
+        log(x)    -> log base 10
+        log(x,b)  -> log base b
+        """
+        if len(args) == 1:
+            x_arg = args[0]
+            # log base 10 por defecto
+            return sp.log(x_arg, 10)
+        elif len(args) == 2:
+            x_arg, base = args
+            return sp.log(x_arg, base)
+        else:
+            raise ValueError("log() debe usarse como log(x) o log(x, base).")
+
     local_dict = {
         'x': x,
         'e': sp.E, 'E': sp.E,
-        'ln': sp.log,       # log natural
-        'log': sp.log,      # natural si lo usan
+
+        # Logaritmos
+        'ln': sp.log,              # ln(x) -> log natural base e
+        'log': _log_personalizado, # log(x) -> base 10, log(x,b) -> base b
+
+        # Raíces
         'root': _root_real_or_pow,
         'cbrt': lambda a: sp.real_root(a, 3),
-        'sen': sp.sin,      # alias comunes en ES
-        'tg': sp.tan,
+
+        # Trigonométricas y otros alias
+        'sen': sp.sin,   # alias ES
+        'tg': sp.tan,    # alias ES
         'sqrt': sp.sqrt,
     }
 
     try:
+        # Normalizar cadena si viene como string
         if isinstance(ecuacion_str, str):
             ecuacion_normalizada = _normalizar_cadena(ecuacion_str)
         else:
             ecuacion_normalizada = ecuacion_str
 
+        # Construir expresión sympy con las funciones locales
         expr = sp.sympify(ecuacion_normalizada, locals=local_dict)
+
+        # Sustituir x
         resultado = expr.subs(x, x_val)
         resultado_eval = sp.N(resultado)
 
-        # Si es real o "casi real", devolver float
+        # Si es claramente real
         if resultado_eval.is_real:
             return float(resultado_eval)
 
+        # Si es "casi real" (parte imaginaria muy pequeña)
         if hasattr(resultado_eval, 'as_real_imag'):
             re_part, im_part = resultado_eval.as_real_imag()
             im_val = float(sp.N(im_part))

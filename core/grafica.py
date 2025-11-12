@@ -92,11 +92,33 @@ def pasar_funcion_a_callable(ecuacion_str: str):
         except Exception:
             return a**(sp.Rational(1, n))
 
+    # 👇 NUEVO: log personalizado (igual que en evaluar_en_punto)
+    def _log_personalizado(*args):
+        """
+        log(x)    -> log base 10
+        log(x,b)  -> log base b
+        """
+        if len(args) == 1:
+            x_arg = args[0]
+            return sp.log(x_arg, 10)      # base 10 por defecto
+        elif len(args) == 2:
+            x_arg, base = args
+            return sp.log(x_arg, base)    # base explícita
+        else:
+            raise ValueError("log() debe usarse como log(x) o log(x, base).")
+
     local_dict = {
         'x': x, 'e': sp.E, 'E': sp.E,
-        'ln': sp.log, 'log': sp.log,
+
+        # Logaritmos
+        'ln': sp.log,               # ln(x) -> log natural base e
+        'log': _log_personalizado,  # log(x) -> base 10, log(x,b) -> base b
+
+        # Raíces
         'root': _root_real_or_pow,
         'cbrt': lambda a: sp.real_root(a, 3),
+
+        # Trigonométricas y otros alias
         'sen': sp.sin, 'tg': sp.tan,
         'sqrt': sp.sqrt,
     }
@@ -107,10 +129,12 @@ def pasar_funcion_a_callable(ecuacion_str: str):
     except (sp.SympifyError, SyntaxError, ValueError, TypeError, re.error) as e:
         raise ValueError(f"Error al interpretar la ecuación: {e}")
 
+    # Convertir a función numpy-safe
     f = sp.lambdify(x, expr, modules=['numpy'])
 
+    # Prueba rápida (opcional)
     try:
-        _ = f(np.array([0.0]))  # prueba segura
+        _ = f(np.array([0.0]))
     except Exception:
         pass
 
