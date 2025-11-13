@@ -249,8 +249,35 @@ class AppMetodosNumericos(BaseApp):
         self.entry_tolerancia = tk.DoubleVar(value=0.0001)
         self.entry_intervalo_inferior = tk.StringVar()
         self.entry_intervalo_superior = tk.StringVar()
+        self.mostrar_notacion_cientifica = tk.BooleanVar(value=True) #
+
 
         self._construir_ui()
+        
+    def _actualizar_margen_formato(self):
+        """Actualiza el texto del margen de error según el formato seleccionado."""
+        texto = self.label_resultado.cget("text")
+
+        # Si no hay margen de error mostrado aún, no hacemos nada
+        if "Margen de error:" not in texto:
+            return
+
+        try:
+            # Extraer el número actual del texto
+            valor = float(re.findall(r"[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?", texto.split("Margen de error:")[-1])[0])
+        except Exception:
+            return
+
+        # Formatear según la selección del usuario
+        if self.mostrar_notacion_cientifica.get():
+            nuevo_formato = f"Margen de error: {valor:.6g}"
+        else:
+            nuevo_formato = f"Margen de error: {valor:.10f}"
+
+        # Reemplazar el texto actual
+        nuevo_texto = re.sub(r"Margen de error:.*", nuevo_formato, texto)
+        self.label_resultado.config(text=nuevo_texto)
+
 
     def _construir_ui(self):
         estilo_btn = {
@@ -355,6 +382,18 @@ class AppMetodosNumericos(BaseApp):
         actions_frame = tk.Frame(col_izq, bg=MN_FONDO)
         actions_frame.grid(row=4, column=0, sticky="ew", pady=(2, 6))
         actions_frame.grid_columnconfigure(0, weight=1)
+        
+        tk.Checkbutton(
+            actions_frame,
+            text="Mostrar notación científica",
+            variable=self.mostrar_notacion_cientifica,
+            bg=MN_FONDO,
+            fg=MN_TEXTO,
+            selectcolor=MN_FONDO,
+            activebackground=MN_FONDO,
+            command=self._actualizar_margen_formato
+        ).grid(row=0, column=0, sticky="w", padx=6)
+        
         tk.Button(actions_frame, text="Graficar Función",
                   command=lambda: graficar_funcion(self.teclado_frame.obtener_funcion()),
                   **estilo_btn).grid(row=0, column=1, sticky="e", padx=6)
@@ -483,10 +522,15 @@ class AppMetodosNumericos(BaseApp):
             except Exception:
                 ultimo_fc = 0.0
 
+            if self.mostrar_notacion_cientifica.get():
+                error_fmt = f"{abs(ultimo_fc):.6g}"
+            else:
+                error_fmt = f"{abs(ultimo_fc):.10f}"
+
             self.label_resultado.config(
                 text=f"{titulo.split(':')[0]} converge en {iteraciones} iteraciones.\n"
-                     f"Raíz aproximada: {resultado:.10f}\n"
-                     f"Margen de error: {abs(ultimo_fc):.6g}"
+                    f"Raíz aproximada: {resultado:.10f}\n"
+                    f"Margen de error: {error_fmt}"
             )
 
         except Exception as e:

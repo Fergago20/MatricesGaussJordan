@@ -70,33 +70,17 @@ def evaluar_en_punto(ecuacion_str, x_val, imag_tol=1e-12):
     x = sp.symbols('x')
 
     def _root_real_or_pow(a, n):
-        """
-        Manejo robusto de raíces con índice potencialmente negativo o simbólico.
-        - n entero:
-            * n == 0: error
-            * n > 0: impar -> real_root(a,n), par -> a**(1/n)
-            * n < 0: 1 / root(a, |n|)
-        - n no entero literal: usar a**(1/n) simbólico.
-        """
-        try:
-            n_int = int(n)
-            if n_int == 0:
-                raise ValueError("root(a, 0) no está definido.")
-            if n_int < 0:
-                # raíz con índice negativo: recíproco
-                n_pos = -n_int
-                if n_pos % 2 == 1:
-                    return 1 / sp.real_root(a, n_pos)
-                else:
-                    return 1 / (a**sp.Rational(1, n_pos))
-            # n_int > 0
-            if n_int % 2 == 1:
-                return sp.real_root(a, n_int)
-            else:
-                return a**(sp.Rational(1, n_int))
-        except Exception:
-            # n no es entero literal -> usar potencia fraccionaria simbólica
-            return a**(sp.Rational(1, n))
+        n = int(n)
+        if n == 0:
+            raise ValueError("root(a, 0) no está definido.")
+        if n < 0:
+            return 1 / _root_real_or_pow(a, -n)
+        # si n es impar, usamos raíz real
+        if n % 2 == 1:
+            return sp.real_root(a, n)
+        # si es par, usamos potencia normal
+        return a**sp.Rational(1, n)
+
 
     def _log_personalizado(*args):
         """
