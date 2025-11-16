@@ -57,7 +57,7 @@ class AppMatrices(BaseApp):
 
         raiz = tk.Frame(self, bg=MAT_FONDO)
         raiz.pack(fill="both", expand=True)
-        raiz.grid_columnconfigure(0, weight=0)
+        raiz.grid_columnconfigure(0, weight=1)
         raiz.grid_columnconfigure(1, weight=1)
         raiz.grid_rowconfigure(0, weight=1)
         raiz.grid_rowconfigure(1, weight=0)
@@ -214,7 +214,7 @@ class AppMatrices(BaseApp):
         for i in range(6):
             fila_inferior.grid_columnconfigure(i, weight=0)
         # columna final expande para empujar el botón Limpiar a la derecha
-        fila_inferior.grid_columnconfigure(5, weight=1)
+        fila_inferior.grid_columnconfigure(6, weight=1)
 
         # Padding consistente para botones (reducido)
         padx_btn = 4
@@ -260,7 +260,7 @@ class AppMatrices(BaseApp):
             font=("Segoe UI", 9, "bold"),
             command=lambda etq=etiqueta: self._op_inversa(etq)
         )
-        btn_inversa.grid(row=0, column=2, padx=(0, padx_btn), pady=pady_btn, sticky="w")
+        btn_inversa.grid(row=1, column=0, columnspan=2, pady=(4,2), sticky="w")
 
         # Botón Determinante (fuente reducida)
         btn_determinante = tk.Button(
@@ -272,7 +272,7 @@ class AppMatrices(BaseApp):
             font=("Segoe UI", 9, "bold"),
             command=lambda etq=etiqueta: self._op_determinante(etq)
         )
-        btn_determinante.grid(row=0, column=3, padx=(0, padx_btn), pady=pady_btn, sticky="w")
+        btn_determinante.grid(row=2, column=0, columnspan=2, pady=2, sticky="w")
 
         # Botón Transpuesta (fuente reducida)
         btn_traspuesta = tk.Button(
@@ -284,7 +284,7 @@ class AppMatrices(BaseApp):
             font=("Segoe UI", 9, "bold"),
             command=lambda etq=etiqueta: self._op_traspuesta(etq)
         )
-        btn_traspuesta.grid(row=0, column=4, padx=(0, padx_btn), pady=pady_btn, sticky="w")
+        btn_traspuesta.grid(row=3, column=0, columnspan=2, pady=2, sticky="w")
 
         # Botón Limpiar (icono más pequeño para ocupar menos espacio)
         try:
@@ -309,7 +309,7 @@ class AppMatrices(BaseApp):
             width=24,
             height=24
         )
-        btn_limpiar.grid(row=0, column=5, padx=(6, 0), pady=pady_btn, sticky="e")
+        btn_limpiar.grid(row=0, column=6, padx=(6, 0), pady=pady_btn, sticky="e")
         btn_limpiar.image = icono_limpiar
 
         # Guardar referencias
