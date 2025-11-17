@@ -20,6 +20,21 @@ def _balance_ok(s: str) -> bool:
 
 
 # ==============================
+# Verificación de paréntesis
+# ==============================
+def _balance_ok(s: str) -> bool:
+    """Verifica que los paréntesis estén balanceados correctamente."""
+    c = 0
+    for ch in s:
+        if ch == '(':
+            c += 1
+        elif ch == ')':
+            c -= 1
+        if c < 0:
+            return False
+    return c == 0
+
+# ==============================
 # Limpieza y normalización
 # ==============================
 def limpiar_ecuacion(ecuacion_str: str) -> str:
@@ -256,6 +271,53 @@ def _obtener_raices_reales(expr_str: str, f, x_min0: float, x_max0: float):
     raices = []
 
     x = sp.symbols('x')
+
+    def _root_real_or_pow(a, n):
+        try:
+            n_int = int(n)
+            if n_int == 0:
+                raise ValueError("root(a,0) no está definido.")
+            if n_int < 0:
+                n_pos = -n_int
+                return 1 / _root_real_or_pow(a, n_pos)
+            if n_int % 2 == 1:
+                return sp.real_root(a, n_int)
+            return a**sp.Rational(1, n_int)
+        except Exception:
+            return a ** (sp.Rational(1, n))
+
+    # log personalizado:
+    def _log_personalizado(*args):
+        """
+        log(x)    -> log base 10
+        log(x,b)  -> log base b
+        """
+        if len(args) == 1:
+            x_arg = args[0]
+            return sp.log(x_arg, 10)      # base 10 por defecto
+        elif len(args) == 2:
+            x_arg, base = args
+            return sp.log(x_arg, base)    # base explícita
+        else:
+            raise ValueError("log() debe usarse como log(x) o log(x, base).")
+
+    local_dict = {
+        'x': x, 'e': sp.E, 'E': sp.E,
+
+        # Logaritmos
+        'ln': sp.log,               # ln(x) -> log natural base e
+        'log': _log_personalizado,  # log(x) -> base 10, log(x,b) -> base b
+
+        # Raíces
+        'root': _root_real_or_pow,
+        'cbrt': lambda a: sp.real_root(a, 3),
+
+        # Trigonométricas y otros alias
+        'sen': sp.sin,
+        'tg': sp.tan,
+        'sqrt': sp.sqrt,
+    }
+
     try:
         expr = sp.sympify(expr_str, locals={'x': x})
         if expr.is_polynomial(x):
@@ -275,6 +337,7 @@ def _obtener_raices_reales(expr_str: str, f, x_min0: float, x_max0: float):
 
     return raices
 
+    return f, str(expr)
 
 def _ajustar_rango_por_raices(f, expr_str: str, x_min0: float, x_max0: float):
     """
@@ -299,6 +362,7 @@ def _ajustar_rango_por_raices(f, expr_str: str, x_min0: float, x_max0: float):
         span = 1.0
     pad = max(span * 0.5, 1.0)
     return rmin - pad, rmax + pad, raices
+
 
 
 # ==============================
