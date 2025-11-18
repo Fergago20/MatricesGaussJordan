@@ -8,64 +8,90 @@ def calcular_newton_raphson(funcion, x0, tol, max_iter: int = 1000):
     Método de Newton-Raphson clásico con punto inicial x0.
 
     Parámetros:
-        funcion   : str o callable. Si es str se interpreta con sympy.
-        x0        : punto inicial para la iteración.
-        tol       : tolerancia para el error de aproximación (Ea).
-        max_iter  : máximo de iteraciones permitidas.
+        funcion   : str o callable.
+        x0        : punto inicial.
+        tol       : tolerancia para el error aproximado (Ea).
+        max_iter  : máximo de iteraciones.
 
     Retorna:
         (raiz, iteraciones, resultados)
-        - raiz: float con la raíz aproximada.
-        - iteraciones: número de iteraciones realizadas.
-        - resultados: lista de filas [iter, xi, xi1, Ea, f(xi), f'(xi)]
 
-    El error Ea se define como error RELATIVO:
-        Ea = |(xi+1 - xi) / xi+1|    (si xi+1 != 0)
-             |xi+1 - xi|            (si xi+1 == 0)
+    Donde resultados = [iter, xi, xi1, Ea, f(xi), f'(xi)]
     """
 
-    # Normalizar x0 (por si te gusta meter fracciones tipo 1/3)
+    # -------------------------------
+    # Normalizar x0 (permite "1/3")
+    # -------------------------------
     x0 = float(fraccion(x0))
 
-    # Construir f y f' según el tipo de "funcion"
+    # -------------------------------
+    # Construir f y f'
+    # -------------------------------
     if isinstance(funcion, str):
         x = sp.symbols('x')
-        expr = sp.sympify(funcion)
-        f_sym = sp.lambdify(x, expr, "math")
+
+        # Permitir que 'e' y 'E' sean la constante matemática
+        locals_dict = {
+            "e": sp.E,
+            "E": sp.E,
+            "exp": sp.exp,
+            "ln": sp.log,
+            "sen": sp.sin,
+            "tg": sp.tan
+        }
+
+        try:
+            expr = sp.sympify(funcion, locals=locals_dict)
+        except Exception as e:
+            raise ValueError(f"Error al interpretar la función: {e}")
+
+        # Derivada simbólica
         df_expr = sp.diff(expr, x)
-        df_sym = sp.lambdify(x, df_expr, "math")
 
-        def f(xval: float) -> float:
-            return float(f_sym(xval))
+        # Crear funciones numéricas seguras
+        f_sym = sp.lambdify(x, expr, modules=["math"])
+        df_sym = sp.lambdify(x, df_expr, modules=["math"])
 
-        def df(xval: float) -> float:
-            return float(df_sym(xval))
+        def f(xval):
+            val = f_sym(xval)
+            return float(val)
+
+        def df(xval):
+            val = df_sym(xval)
+            return float(val)
 
     elif callable(funcion):
+        # Función numérica directa
         f = funcion
 
-        # Derivada numérica central si te pasan un callable
-        def df(xval: float, h: float = 1e-6) -> float:
+        def df(xval, h=1e-6):
             return float((f(xval + h) - f(xval - h)) / (2 * h))
-    else:
-        raise TypeError("El argumento 'funcion' debe ser un string o un callable.")
 
+    else:
+        raise TypeError("El argumento 'funcion' debe ser un string o callable.")
+
+    # -------------------------------
+    # Iteración de Newton-Raphson
+    # -------------------------------
     xi = x0
     resultados = []
 
     for it in range(1, max_iter + 1):
+
         fxi = f(xi)
         dfxi = df(xi)
 
-        if dfxi == 0:
+        # Evitar división entre cero o derivada peligrosa
+        if abs(dfxi) < 1e-14:
             raise ZeroDivisionError(
-                "La derivada f'(x) se hizo cero en una iteración; "
-                "el método de Newton-Raphson no puede continuar."
+                f"La derivada es demasiado pequeña (f'({xi}) = {dfxi}). "
+                f"Newton-Raphson no puede continuar."
             )
 
+        # Cálculo de Newton
         xi1 = xi - fxi / dfxi
 
-        # Error relativo (como en el ejemplo)
+        # Error relativo
         if xi1 != 0:
             Ea = abs((xi1 - xi) / xi1)
         else:
@@ -80,13 +106,12 @@ def calcular_newton_raphson(funcion, x0, tol, max_iter: int = 1000):
             float(dfxi)
         ])
 
-        # Criterio de parada usando evaluar_tolerancia
+        # Criterio de paro
         if evaluar_tolerancia(Ea, tol):
             return float(xi1), it, resultados
 
         xi = xi1
 
-    # Si llega aquí, no convergió
     raise RuntimeError(
-        "Newton-Raphson alcanzó el número máximo de iteraciones sin converger."
+        "Newton-Raphson alcanzó el máximo de iteraciones sin converger."
     )

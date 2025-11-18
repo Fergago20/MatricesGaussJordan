@@ -256,16 +256,27 @@ class AppMetodosNumericos(BaseApp):
             return f"{self._ultimo_error}"
 
     def _actualizar_margen_formato(self):
-        """Reformatea el margen de error en el label_resultado según el Checkbutton."""
-        if self._ultimo_error is None:
-            return
-
+        """Actualiza el texto del margen de error según el formato seleccionado."""
         texto = self.label_resultado.cget("text")
+
+        # Si no hay margen de error mostrado aún, no hacemos nada
         if "Margen de error:" not in texto:
             return
 
-        nuevo_error = self._formatear_error()
-        nuevo_texto = re.sub(r"Margen de error:.*", f"Margen de error: {nuevo_error}", texto)
+        try:
+            # Extraer el número actual del texto
+            valor = float(re.findall(r"[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?", texto.split("Margen de error:")[-1])[0])
+        except Exception:
+            return
+
+        # Formatear según la selección del usuario
+        if self.mostrar_notacion_cientifica.get():
+            nuevo_formato = f"Margen de error: {valor:.6g}"
+        else:
+            nuevo_formato = f"Margen de error: {valor:.10f}"
+
+        # Reemplazar el texto actual
+        nuevo_texto = re.sub(r"Margen de error:.*", nuevo_formato, texto)
         self.label_resultado.config(text=nuevo_texto)
 
     # ------------------------------------------------------------
@@ -535,12 +546,12 @@ class AppMetodosNumericos(BaseApp):
                     "",
                     "end",
                     values=(
-                        f"{int(iter_):+d}",   # +1, +2, +3...
-                        f"{xi:+.4f}",
-                        f"{xi1:+.4f}",
-                        f"{Ea:+.4f}",
-                        f"{fxi:+.4f}",
-                        f"{fpxi:+.4f}",
+                        f"{int(iter_)}",       
+                        f"{xi:.4f}",             
+                        f"{xi1:.4f}",  
+                        f"{Ea:.4f}",
+                        f"{fxi:.4f}",    
+                        f"{fpxi:.4f}", 
                     )
                 )
 
