@@ -216,24 +216,3 @@ def calcular_biseccion(funcion, a, b, tol):
         iteraciones += 1
 
     return float(c), iteraciones, resultados
-
-# ---------------------------
-# PRUEBAS RÁPIDAS
-# ---------------------------
-if __name__ == "__main__":
-    casos = [
-        "x^-2",           # ^ -> ** y exponente negativo entero
-        "x**-3",          # negativo entero
-        "x**-2.5",        # negativo decimal
-        "x**-1/2",        # fracción negativa sin paréntesis -> **(-1/2)
-        "x^-1/3",         # con ^ -> **(-1/3)
-        "root(x, -3)",    # raíz con índice negativo (recíproco de cúbica)
-        "root(-8, 3)",    # cúbica real de negativo
-        "root(-8, -3)",   # recíproco de cúbica real ( = -1/2 )
-        "root(x, 2)",     # raíz cuadrada (rama principal)
-    ]
-    for s in casos:
-        try:
-            print(s, "=>", evaluar_en_punto(s, 4))
-        except Exception as e:
-            print(s, "-> Error:", e)

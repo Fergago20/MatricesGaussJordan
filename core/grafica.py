@@ -283,14 +283,37 @@ def _obtener_raices_reales(expr_str: str, f, x_min0: float, x_max0: float):
                 return sp.real_root(a, n_int)
             return a**sp.Rational(1, n_int)
         except Exception:
-            return a**(sp.Rational(1, n))
+            return a ** (sp.Rational(1, n))
+
+    # log personalizado:
+    def _log_personalizado(*args):
+        """
+        log(x)    -> log base 10
+        log(x,b)  -> log base b
+        """
+        if len(args) == 1:
+            x_arg = args[0]
+            return sp.log(x_arg, 10)      # base 10 por defecto
+        elif len(args) == 2:
+            x_arg, base = args
+            return sp.log(x_arg, base)    # base explícita
+        else:
+            raise ValueError("log() debe usarse como log(x) o log(x, base).")
 
     local_dict = {
         'x': x, 'e': sp.E, 'E': sp.E,
-        'ln': sp.log, 'log': sp.log,
+
+        # Logaritmos
+        'ln': sp.log,               # ln(x) -> log natural base e
+        'log': _log_personalizado,  # log(x) -> base 10, log(x,b) -> base b
+
+        # Raíces
         'root': _root_real_or_pow,
         'cbrt': lambda a: sp.real_root(a, 3),
-        'sen': sp.sin, 'tg': sp.tan,
+
+        # Trigonométricas y otros alias
+        'sen': sp.sin,
+        'tg': sp.tan,
         'sqrt': sp.sqrt,
     }
 
@@ -338,6 +361,7 @@ def _ajustar_rango_por_raices(f, expr_str: str, x_min0: float, x_max0: float):
         span = 1.0
     pad = max(span * 0.5, 1.0)
     return rmin - pad, rmax + pad, raices
+
 
 
 # ==============================

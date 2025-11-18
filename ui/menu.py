@@ -7,6 +7,7 @@ from ui.resolver_sistemas_app import AppResolverSistemas
 from ui.matrices_app import AppMatrices
 from ui.app_vectores import AppIndependenciaLineal
 from ui.Met_numericos import AppMetodosNumericos
+from ui.met_numericos2 import AppMetodosNumericos as AppMetodosNumericos2
 
 
 def mostrar_menu():
@@ -152,7 +153,7 @@ def abrir_submenu_metodos(root):
         fila_botones,
         "Método de Newton-Raphson",
         img_nr,
-        lambda: print("Newton-Raphson…"),
+        lambda: abrir_newton(root, sub),
         color_fondo="#C7EAFD"
     ).grid(row=0, column=1, padx=28, pady=8)
 
@@ -184,6 +185,16 @@ def abrir_biseccion(root, sub):
 
     # Abrir la ventana completa de Bisección/Falsa Posición
     AppMetodosNumericos(
+        toplevel_parent=root,
+        on_volver=lambda: volver_a_submenu(root)
+    )
+
+def abrir_newton(root, sub):
+    # Cerrar submenú
+    sub.destroy()
+
+    # Abrir la ventana completa de Newton-Raphson
+    AppMetodosNumericos2(
         toplevel_parent=root,
         on_volver=lambda: volver_a_submenu(root)
     )
