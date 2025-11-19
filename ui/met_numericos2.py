@@ -7,6 +7,7 @@ import sympy as sp
 import re
 from sympy import symbols, pi, E
 from core.newton import calcular_newton_raphson as metodo_newton
+from core.secante import calcular_secante as metodo_secante
 from core.grafica import inicio_grafica as graficar_funcion
 from ui.estilos import (
     GAUSS_FONDO as MN_FONDO,
@@ -49,7 +50,7 @@ class CalculadoraCientificaFrame(ctk.CTkFrame):
         self.frame_izquierdo = ctk.CTkFrame(self.frame_inferior, fg_color="#6889AA")
         self.frame_izquierdo.pack(side="left", fill="y", expand=True, padx=5, pady=5)
 
-        # Densidad del grid del lado derecho (teclado)
+        # Grid del teclado
         for r in range(5):
             self.frame_derecho.grid_rowconfigure(r, weight=1)
         for c in range(4):
@@ -149,7 +150,7 @@ class CalculadoraCientificaFrame(ctk.CTkFrame):
                .replace('^', '**')
                .replace('÷', '/'))
 
-        # √[n](expr) -> sqrt(expr, n) provisional
+        # √[n](expr) -> sqrt(expr, n)
         f = re.sub(r'√\s*\[\s*(\d+)\s*\]\s*\(\s*([^)]+?)\s*\)', r'sqrt(\2, \1)', f)
         # √(expr) -> sqrt(expr)
         f = re.sub(r'√\s*\(\s*([^)]+?)\s*\)', r'sqrt(\1)', f)
@@ -171,7 +172,7 @@ class CalculadoraCientificaFrame(ctk.CTkFrame):
             return f"sqrt({base})" if n == '2' else f"root({base}, {n})"
 
         f = re.sub(
-            r'([A-Za-z_]\w*(?:\([^\)]*\))?|\d+(?:\.\d+)?)\s*\*\*\s*\(\s*1\s*/\s*(\d+)\s*\)',
+            r'([A-Za-z_]\w*(?:\([^\)]*\))?|\d+(?:\.\d+)?)\s*\*\*\s*\(\s*1\s*/\s*(\d+)\)',
             _repl_pow_simple, f
         )
 
@@ -226,57 +227,47 @@ class CalculadoraCientificaFrame(ctk.CTkFrame):
 
 
 # ============================================================
-#   INTERFAZ PRINCIPAL: Método de Newton-Raphson
+#   INTERFAZ PRINCIPAL: Newton-Raphson y Secante
 # ============================================================
 
 class AppMetodosNumericos(BaseApp):
-    """Interfaz visual para Newton-Raphson con punto inicial x0."""
+    """Interfaz visual para Newton-Raphson y Secante con puntos iniciales."""
     def __init__(self, toplevel_parent=None, on_volver=None):
-        super().__init__(toplevel_parent, on_volver, titulo="Método de Newton-Raphson")
+        super().__init__(toplevel_parent, on_volver, titulo="Métodos Numéricos: Newton y Secante")
         self.configure(bg=MN_FONDO)
 
         self.entry_ecuacion = tk.StringVar()
         self.entry_tolerancia = tk.DoubleVar(value=0.0001)
-        self.entry_x0 = tk.StringVar()          # punto inicial
+        self.entry_x0 = tk.StringVar()          # x0
+        self.entry_x1 = tk.StringVar()          # x1 (secante)
         self.mostrar_notacion_cientifica = tk.BooleanVar(value=True)
 
-        self._ultimo_error = None               # para manejar el Checkbutton
+        self._ultimo_error = None               # siempre Ea de la última fila
+        self.metodo_var = tk.StringVar(value="newton")
 
         self._construir_ui()
 
     # ------------------------------------------------------------
     def _formatear_error(self) -> str:
-        """Devuelve el error formateado según el Checkbutton."""
+        """Devuelve el error (Ea último) formateado según el Checkbutton."""
         if self._ultimo_error is None:
             return "N/A"
         if self.mostrar_notacion_cientifica.get():
             return f"{self._ultimo_error:.6g}"
         else:
-            # sin limitar decimales
             return f"{self._ultimo_error}"
 
     def _actualizar_margen_formato(self):
-        """Actualiza el texto del margen de error según el formato seleccionado."""
+        """
+        Solo cambia el FORMATO del margen de error,
+        pero el valor SIEMPRE viene de self._ultimo_error (Ea último).
+        """
         texto = self.label_resultado.cget("text")
-
-        # Si no hay margen de error mostrado aún, no hacemos nada
-        if "Margen de error:" not in texto:
+        if "Margen de error:" not in texto or self._ultimo_error is None:
             return
 
-        try:
-            # Extraer el número actual del texto
-            valor = float(re.findall(r"[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?", texto.split("Margen de error:")[-1])[0])
-        except Exception:
-            return
-
-        # Formatear según la selección del usuario
-        if self.mostrar_notacion_cientifica.get():
-            nuevo_formato = f"Margen de error: {valor:.6g}"
-        else:
-            nuevo_formato = f"Margen de error: {valor:.10f}"
-
-        # Reemplazar el texto actual
-        nuevo_texto = re.sub(r"Margen de error:.*", nuevo_formato, texto)
+        nuevo_error = f"Margen de error: {self._formatear_error()}"
+        nuevo_texto = re.sub(r"Margen de error:.*", nuevo_error, texto)
         self.label_resultado.config(text=nuevo_texto)
 
     # ------------------------------------------------------------
@@ -347,12 +338,14 @@ class AppMetodosNumericos(BaseApp):
         except Exception:
             pass
 
-        # Punto inicial x0 + Tolerancia
+        # Puntos iniciales x0, x1 + Tolerancia
         frame_intervalos = tk.Frame(col_izq, bg=MN_FONDO)
         frame_intervalos.grid(row=2, column=0, sticky="ew", pady=(0, 4))
-        for i in range(4):
+
+        for i in range(6):
             frame_intervalos.grid_columnconfigure(i, weight=1 if i % 2 else 0)
 
+        # x0
         tk.Label(
             frame_intervalos, text="x0:",
             bg=MN_FONDO, fg=MN_TEXTO
@@ -364,18 +357,31 @@ class AppMetodosNumericos(BaseApp):
             justify="center"
         ).grid(row=0, column=1, padx=(0, 8), sticky="ew")
 
+        # x1 (para secante)
         tk.Label(
-            frame_intervalos, text="Tol.:",
+            frame_intervalos, text="x1 (secante):",
             bg=MN_FONDO, fg=MN_TEXTO
         ).grid(row=0, column=2, padx=5, sticky="e")
         tk.Entry(
-            frame_intervalos, textvariable=self.entry_tolerancia,
+            frame_intervalos, textvariable=self.entry_x1,
             font=("Segoe UI", 12), width=10,
             bg=MN_CAJA_BG, fg=MN_CAJA_FG,
             justify="center"
         ).grid(row=0, column=3, padx=(0, 8), sticky="ew")
 
-        # Método (solo Newton)
+        # Tolerancia
+        tk.Label(
+            frame_intervalos, text="Tol.:",
+            bg=MN_FONDO, fg=MN_TEXTO
+        ).grid(row=0, column=4, padx=5, sticky="e")
+        tk.Entry(
+            frame_intervalos, textvariable=self.entry_tolerancia,
+            font=("Segoe UI", 12), width=10,
+            bg=MN_CAJA_BG, fg=MN_CAJA_FG,
+            justify="center"
+        ).grid(row=0, column=5, padx=(0, 8), sticky="ew")
+
+        # Método (Newton / Secante)
         frame_metodo = tk.Frame(col_izq, bg=MN_FONDO)
         frame_metodo.grid(row=3, column=0, sticky="ew", pady=(0, 4))
         tk.Label(
@@ -383,12 +389,20 @@ class AppMetodosNumericos(BaseApp):
             bg=MN_FONDO, fg=MN_TEXTO
         ).pack(side="left", padx=5)
 
-        self.metodo_var = tk.StringVar(value="newton")
         tk.Radiobutton(
             frame_metodo, text="Newton-Raphson",
             variable=self.metodo_var, value="newton",
             bg=MN_FONDO, fg=MN_TEXTO,
-            selectcolor=MN_FONDO, activebackground=MN_FONDO
+            selectcolor=MN_FONDO, activebackground=MN_FONDO,
+            command=self._on_cambio_metodo
+        ).pack(side="left", padx=5)
+
+        tk.Radiobutton(
+            frame_metodo, text="Secante",
+            variable=self.metodo_var, value="secante",
+            bg=MN_FONDO, fg=MN_TEXTO,
+            selectcolor=MN_FONDO, activebackground=MN_FONDO,
+            command=self._on_cambio_metodo
         ).pack(side="left", padx=5)
 
         # Botones acción
@@ -452,14 +466,10 @@ class AppMetodosNumericos(BaseApp):
         cont_tabla.grid_rowconfigure(0, weight=1)
         cont_tabla.grid_columnconfigure(0, weight=1)
 
-        columnas = ("Iteración", "xi", "xi+1", "Ea", "f(xi)", "f'(xi)")
         self.tree = ttk.Treeview(
-            cont_tabla, columns=columnas,
+            cont_tabla,
             show="headings", height=12
         )
-        for col in columnas:
-            self.tree.heading(col, text=col)
-            self.tree.column(col, width=120, anchor="center")
         self.tree.grid(row=0, column=0, sticky="nsew")
 
         vsb = ttk.Scrollbar(cont_tabla, orient="vertical", command=self.tree.yview)
@@ -467,6 +477,9 @@ class AppMetodosNumericos(BaseApp):
         self.tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
         vsb.grid(row=0, column=1, sticky="ns")
         hsb.grid(row=1, column=0, sticky="ew")
+
+        # Configuración inicial (Newton: exactamente como antes)
+        self._configurar_tabla("newton")
 
         # Eventos preview ecuación
         self.entry_ecuacion_widget.bind("<KeyRelease>", self._on_ecuacion_change)
@@ -482,8 +495,32 @@ class AppMetodosNumericos(BaseApp):
         ).pack(side="left", padx=5)
 
     # ------------------------------------------------------------
+    def _configurar_tabla(self, metodo: str):
+        """Configura las columnas de la tabla según el método."""
+        if metodo == "newton":
+            # EXACTAMENTE como lo tenías:
+            columnas = ("Iteración", "xi", "xi+1", "Ea", "f(xi)", "f'(xi)")
+        else:  # secante
+            # Solo aquí usamos xi-1, xi, xi+1
+            columnas = ("Iteración", "xi-1", "xi", "xi+1", "Ea", "f(xi-1)", "f(xi)")
+        self.tree["columns"] = columnas
+        for col in columnas:
+            self.tree.heading(col, text=col)
+            self.tree.column(col, width=120, anchor="center")
+
+    def _on_cambio_metodo(self):
+        """Se llama al cambiar el RadioButton de método."""
+        metodo = self.metodo_var.get()
+        # Limpiar tabla y texto
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+        self._ultimo_error = None
+        self.label_resultado.config(text="Aún no se ha realizado ningún cálculo.")
+        self._configurar_tabla(metodo)
+
+    # ------------------------------------------------------------
     def calcular(self):
-        """Ejecuta el método de Newton-Raphson y muestra resultados."""
+        """Ejecuta el método seleccionado y muestra resultados."""
         # Limpiar tabla
         for item in self.tree.get_children():
             self.tree.delete(item)
@@ -491,22 +528,47 @@ class AppMetodosNumericos(BaseApp):
         ecuacion = self.teclado_frame.obtener_funcion().strip().replace("=0", "").strip()
         tol_str = str(self.entry_tolerancia.get()).strip()
         x0_str = self.entry_x0.get().strip()
+        x1_str = self.entry_x1.get().strip()
+        metodo = self.metodo_var.get()
 
         if not ecuacion:
             messagebox.showwarning("Ecuación vacía", "Por favor, ingresa una ecuación antes de calcular.")
             return
-        if not x0_str or not tol_str:
+        if not tol_str or not x0_str:
             messagebox.showwarning(
                 "Campos incompletos",
-                "Debes llenar los campos x0 y tolerancia."
+                "Debes llenar al menos x0 y tolerancia."
             )
             return
+
+        # Validar x0
         try:
             x0 = float(x0_str)
         except ValueError:
             messagebox.showerror("Error de formato", "El valor de x0 debe ser numérico.")
             return
 
+        # Validar x1 si se usa secante
+        if metodo == "secante":
+            if not x1_str:
+                messagebox.showwarning(
+                    "Campos incompletos",
+                    "Para el método de la secante debes llenar x0 y x1."
+                )
+                return
+            try:
+                x1 = float(x1_str)
+            except ValueError:
+                messagebox.showerror("Error de formato", "El valor de x1 debe ser numérico.")
+                return
+            if x0 == x1:
+                messagebox.showerror(
+                    "Valores inválidos",
+                    "En el método de la secante se requieren x0 y x1 diferentes."
+                )
+                return
+
+        # Validar tolerancia
         try:
             tol = float(eval(tol_str, {"__builtins__": None}, {"e": 2.71828, "E": 2.71828, "pow": pow}))
         except Exception:
@@ -526,38 +588,53 @@ class AppMetodosNumericos(BaseApp):
             )
             return
 
-        metodo = self.metodo_var.get()
         try:
-            if metodo != "newton":
-                messagebox.showerror(
-                    "Método no implementado",
-                    "Actualmente solo está implementado el método de Newton-Raphson."
-                )
-                return
+            if metodo == "newton":
+                # Newton recibe ecuación, x0, tol
+                resultado, iteraciones, filas = metodo_newton(ecuacion, x0, tol)
+                titulo = "Método de Newton-Raphson"
 
-            # Newton recibe ecuacion, x0, tol
-            resultado, iteraciones, filas = metodo_newton(ecuacion, x0, tol)
-            titulo = "Iteraciones del Método de Newton-Raphson:"
-
-            # Insertar filas en la tabla
-            for fila in filas:
-                iter_, xi, xi1, Ea, fxi, fpxi = fila
-                self.tree.insert(
-                    "",
-                    "end",
-                    values=(
-                        f"{int(iter_)}",       
-                        f"{xi:.8f}",             
-                        f"{xi1:.8f}",  
-                        f"{Ea:.8f}",
-                        f"{fxi:.8f}",    
-                        f"{fpxi:.8f}", 
+                # filas: [iter, xi, xi1, Ea, f(xi), f'(xi)]
+                for fila in filas:
+                    iter_, xi, xi1, Ea, fxi, fpxi = fila
+                    self.tree.insert(
+                        "",
+                        "end",
+                        values=(
+                            f"{int(iter_)}",
+                            f"{xi:.8f}",    # xi
+                            f"{xi1:.8f}",   # xi+1
+                            f"{Ea:.8f}",
+                            f"{fxi:.8f}",
+                            f"{fpxi:.8f}",
+                        )
                     )
-                )
 
-            # Margen de error: Ea de la última fila
+            else:  # secante
+                # Secante recibe ecuación, x0, x1, tol
+                resultado, iteraciones, filas = metodo_secante(ecuacion, x0, x1, tol)
+                titulo = "Método de la Secante"
+
+                # filas: [iter, xi_1, xi, xi1, Ea, fxi_1, fxi]
+                for fila in filas:
+                    iter_, xi_1, xi, xi1, Ea, fxi_1, fxi = fila
+                    self.tree.insert(
+                        "",
+                        "end",
+                        values=(
+                            f"{int(iter_)}",
+                            f"{xi_1:.8f}",  # x0
+                            f"{xi:.8f}",    # x1
+                            f"{xi1:.8f}",   # x2
+                            f"{Ea:.8f}",
+                            f"{fxi_1:.8f}", # f(x0)
+                            f"{fxi:.8f}",   # f(x1)
+                        )
+                    )
+
+            # Margen de error = Ea de la ÚLTIMA fila
             try:
-                self._ultimo_error = abs(filas[-1][3])
+                self._ultimo_error = abs(filas[-1][4])
             except Exception:
                 self._ultimo_error = 0.0
 
@@ -565,7 +642,7 @@ class AppMetodosNumericos(BaseApp):
 
             self.label_resultado.config(
                 text=(
-                    f"{titulo.split(':')[0]} converge en {iteraciones} iteraciones.\n"
+                    f"{titulo} converge en {iteraciones} iteraciones.\n"
                     f"Raíz aproximada: {resultado:.10f}\n"
                     f"Margen de error: {error_fmt}"
                 )
