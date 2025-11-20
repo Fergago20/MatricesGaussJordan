@@ -1,7 +1,8 @@
 # core/newton.py
 
-import sympy as sp
-from core.biserccion import fraccion, evaluar_tolerancia
+import sympy as sp  # lo puedes dejar aunque no se use mucho ahora
+from core.biserccion import fraccion, evaluar_tolerancia, evaluar_en_punto
+
 
 def calcular_newton_raphson(funcion, x0, tol, max_iter: int = 1000):
     """
@@ -28,43 +29,19 @@ def calcular_newton_raphson(funcion, x0, tol, max_iter: int = 1000):
     # Construir f y f'
     # -------------------------------
     if isinstance(funcion, str):
-        x = sp.symbols('x')
+        # Usamos SIEMPRE evaluar_en_punto para respetar dominios (logs, root, etc.)
+        def f(xval: float) -> float:
+            return float(evaluar_en_punto(funcion, xval))
 
-        # Permitir que 'e' y 'E' sean la constante matemática
-        locals_dict = {
-            "e": sp.E,
-            "E": sp.E,
-            "exp": sp.exp,
-            "ln": sp.log,
-            "sen": sp.sin,
-            "tg": sp.tan
-        }
-
-        try:
-            expr = sp.sympify(funcion, locals=locals_dict)
-        except Exception as e:
-            raise ValueError(f"Error al interpretar la función: {e}")
-
-        # Derivada simbólica
-        df_expr = sp.diff(expr, x)
-
-        # Crear funciones numéricas seguras
-        f_sym = sp.lambdify(x, expr, modules=["math"])
-        df_sym = sp.lambdify(x, df_expr, modules=["math"])
-
-        def f(xval):
-            val = f_sym(xval)
-            return float(val)
-
-        def df(xval):
-            val = df_sym(xval)
-            return float(val)
+        # Derivada numérica central usando la misma f “segura”
+        def df(xval: float, h: float = 1e-6) -> float:
+            return float((f(xval + h) - f(xval - h)) / (2 * h))
 
     elif callable(funcion):
         # Función numérica directa
         f = funcion
 
-        def df(xval, h=1e-6):
+        def df(xval: float, h: float = 1e-6) -> float:
             return float((f(xval + h) - f(xval - h)) / (2 * h))
 
     else:
@@ -77,7 +54,7 @@ def calcular_newton_raphson(funcion, x0, tol, max_iter: int = 1000):
     resultados = []
 
     for it in range(1, max_iter + 1):
-
+        # Evaluar función y derivada en el punto actual
         fxi = f(xi)
         dfxi = df(xi)
 
@@ -112,6 +89,7 @@ def calcular_newton_raphson(funcion, x0, tol, max_iter: int = 1000):
 
         xi = xi1
 
+    # Si no logró converger
     raise RuntimeError(
         "Newton-Raphson alcanzó el máximo de iteraciones sin converger."
     )

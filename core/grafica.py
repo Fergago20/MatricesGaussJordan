@@ -18,7 +18,6 @@ def _balance_ok(s: str) -> bool:
             return False
     return c == 0
 
-
 # ==============================
 # Verificación de paréntesis
 # ==============================
