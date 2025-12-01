@@ -21,7 +21,35 @@ from ui.estilos import (
 from soporte.base_app import BaseApp
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from sympy import latex as sp_latex
+from sympy.printing.latex import LatexPrinter
+
+# ============================================================
+#   PRINTER PERSONALIZADO PARA MOSTRAR ln(x)
+# ============================================================
+
+class CustomLatexPrinter(LatexPrinter):
+    def _print_log(self, expr):
+        """
+        Sobrescribe la impresión de log:
+        - log(x)        -> \ln(x)
+        - log(x, base)  -> \log_{base}(x)
+        """
+        args = expr.args
+
+        # log(x)  (logaritmo natural) -> ln(x)
+        if len(args) == 1:
+            arg_tex = self._print(args[0])
+            return r"\ln\left(%s\right)" % arg_tex
+
+        # log(x, base) -> log_base(x)
+        x_tex = self._print(args[0])
+        base_tex = self._print(args[1])
+        return r"\log_{%s}\left(%s\right)" % (base_tex, x_tex)
+
+
+def custom_latex(expr) -> str:
+    """Usa el printer personalizado para generar LaTeX."""
+    return CustomLatexPrinter().doprint(expr)
 
 # ============================================================
 #   CALCULADORA CIENTÍFICA (teclado)
@@ -146,7 +174,9 @@ class CalculadoraCientificaFrame(ctk.CTkFrame):
              .replace('³', '**3')
              .replace('sen', 'sin')
              .replace('^', '**')
-             .replace('÷', '/'))
+             .replace('÷', '/')
+             .replace('ln', 'log')  # <-- ln(x) se convierte a log(x) para SymPy
+             )
 
         # ---------------------------
         # 0) √ con/sin índice → sqrt(...) provisional
@@ -251,7 +281,6 @@ class AppMetodosNumericos(BaseApp):
         self.entry_intervalo_superior = tk.StringVar()
         self.mostrar_notacion_cientifica = tk.BooleanVar(value=True) #
 
-
         self._construir_ui()
         
     def _actualizar_margen_formato(self):
@@ -277,7 +306,6 @@ class AppMetodosNumericos(BaseApp):
         # Reemplazar el texto actual
         nuevo_texto = re.sub(r"Margen de error:.*", nuevo_formato, texto)
         self.label_resultado.config(text=nuevo_texto)
-
 
     def _construir_ui(self):
         estilo_btn = {
@@ -625,7 +653,8 @@ class AppMetodosNumericos(BaseApp):
 
         try:
             expr = sp.sympify(ecuacion_parseable)
-            tex = sp_latex(expr)
+            # USAMOS EL PRINTER PERSONALIZADO
+            tex = custom_latex(expr)
             self.lbl_ok.config(text="✓ Ecuación válida", bg="#198754")
             self._render_preview(tex)
         except Exception:

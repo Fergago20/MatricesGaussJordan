@@ -23,7 +23,30 @@ from ui.estilos import (
 from soporte.base_app import BaseApp
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from sympy import latex as sp_latex
+from sympy.printing.latex import LatexPrinter
+class CustomLatexPrinter(LatexPrinter):
+    def _print_log(self, expr):
+        """
+        Sobrescribe la impresión de log:
+        - log(x)        -> \ln(x)
+        - log(x, base)  -> \log_{base}(x)
+        """
+        args = expr.args
+
+        # log(x)  (logaritmo natural) -> ln(x)
+        if len(args) == 1:
+            arg_tex = self._print(args[0])
+            return r"\ln\left(%s\right)" % arg_tex
+
+        # log(x, base) -> log_base(x)
+        x_tex = self._print(args[0])
+        base_tex = self._print(args[1])
+        return r"\log_{%s}\left(%s\right)" % (base_tex, x_tex)
+
+
+def custom_latex(expr) -> str:
+    """Usa el printer personalizado para generar LaTeX."""
+    return CustomLatexPrinter().doprint(expr)
 
 x = symbols('x')
 
@@ -141,7 +164,7 @@ class CalculadoraCientificaFrame(ctk.CTkFrame):
         self.parent_textbox.insert("insert", texto)
 
     def obtener_funcion(self):
-        f = self.parent_textbox.get().strip()
+        f = self.parent_textbox.get().strip().lower()
 
         # Reemplazos básicos
         f = (f.replace('²', '**2')
@@ -247,15 +270,21 @@ class AppMetodosNumericos(BaseApp):
 
         self._construir_ui()
 
-    # ------------------------------------------------------------
     def _formatear_error(self) -> str:
         """Devuelve el error (Ea último) formateado según el Checkbutton."""
         if self._ultimo_error is None:
             return "N/A"
+
+        valor = self._ultimo_error
+
         if self.mostrar_notacion_cientifica.get():
-            return f"{self._ultimo_error:.6g}"
+            # Notación científica automática
+            return f"{valor:.6e}"
         else:
-            return f"{self._ultimo_error}"
+            # Notación decimal fija (sin científica)
+            # 10 decimales siempre — ajusta si quieres otro número
+            return f"{valor:.10f}"
+
 
     def _actualizar_margen_formato(self):
         """
@@ -656,9 +685,16 @@ class AppMetodosNumericos(BaseApp):
             self.label_resultado.config(text="Error: no se pudo completar el cálculo.")
             self._ultimo_error = None
 
+    def custom_latex(expr) -> str:
+        """Usa el printer personalizado para generar LaTeX."""
+        return CustomLatexPrinter().doprint(expr)
+
     # ------------------------------------------------------------
     def _on_ecuacion_change(self, event):
-        """Normaliza el texto para parsear y muestra el render tipografiado si es válido."""
+        """
+        Lee el texto EXACTO del input, lo normaliza SOLO para parsear (sin modificar el input),
+        y si es válido, muestra el render tipografiado; si no, muestra aviso.
+        """
         texto_usuario = self.entry_ecuacion_widget.get().strip()
 
         if not texto_usuario:
@@ -675,7 +711,8 @@ class AppMetodosNumericos(BaseApp):
 
         try:
             expr = sp.sympify(ecuacion_parseable)
-            tex = sp_latex(expr)
+            # USAMOS EL PRINTER PERSONALIZADO
+            tex = custom_latex(expr)
             self.lbl_ok.config(text="✓ Ecuación válida", bg="#198754")
             self._render_preview(tex)
         except Exception:
@@ -683,15 +720,16 @@ class AppMetodosNumericos(BaseApp):
             self._render_preview(None)
 
     def _render_preview(self, tex_or_none: str | None):
-        """Dibuja el LaTeX en el Figure embebido."""
+        """
+        Dibuja el LaTeX en el Figure embebido.
+        Si tex_or_none es None, limpia el lienzo.
+        """
         self._ax.clear()
         self._ax.axis("off")
 
         if tex_or_none:
-            self._ax.text(
-                0.01, 0.5, f"${tex_or_none}$",
-                va="center", ha="left", fontsize=16
-            )
+            self._ax.text(0.01, 0.5, f"${tex_or_none}$",
+                          va="center", ha="left", fontsize=16)
             self._fig.subplots_adjust(left=0.02, right=0.98, top=0.95, bottom=0.05)
 
         self._canvas_preview.draw_idle()

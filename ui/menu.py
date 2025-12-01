@@ -151,7 +151,7 @@ def abrir_submenu_metodos(root):
     # Botón 2: Newton-Raphson
     BotonCard(
         fila_botones,
-        "Método de Newton-Raphson",
+        "Método de Newton-Raphson/Secante",
         img_nr,
         lambda: abrir_newton(root, sub),
         color_fondo="#C7EAFD"
