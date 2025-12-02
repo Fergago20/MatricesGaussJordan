@@ -322,7 +322,6 @@ class CalculadoraCientificaFrame(ctk.CTkFrame):
             return ''.join(out)
 
         f = _convert_sqrt_with_index(f)
-        f = convert_log_bases(f)
 
         # ---------------------------
         # 4) Coma decimal entre dígitos -> punto
@@ -724,6 +723,7 @@ class AppMetodosNumericos(BaseApp):
 
         try:
             ecuacion_parseable = self.teclado_frame.obtener_funcion()
+            ecuacion_parseable = convert_log_bases(ecuacion_parseable)
         except Exception:
             self.lbl_ok.config(text="⚠ Ecuación no válida", bg="#C27C0E")
             self._render_preview(None)
