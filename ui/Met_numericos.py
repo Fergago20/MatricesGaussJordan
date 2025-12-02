@@ -30,13 +30,12 @@ from sympy.printing.latex import LatexPrinter
 class CustomLatexPrinter(LatexPrinter):
     def _print_log(self, expr):
         """
-        Sobrescribe la impresión de log:
-        - log(x)        -> \ln(x)
-        - log(x, base)  -> \log_{base}(x)
+        log(x)        -> ln(x)        (logaritmo natural)
+        log(x, base)  -> log_base(x)  (cuando Sympy sí conserva la base)
         """
         args = expr.args
 
-        # log(x)  (logaritmo natural) -> ln(x)
+        # log(x) (un solo argumento) -> ln(x)
         if len(args) == 1:
             arg_tex = self._print(args[0])
             return r"\ln\left(%s\right)" % arg_tex
@@ -46,10 +45,86 @@ class CustomLatexPrinter(LatexPrinter):
         base_tex = self._print(args[1])
         return r"\log_{%s}\left(%s\right)" % (base_tex, x_tex)
 
+    def _print_log10(self, expr):
+        """
+        log10(x) -> log(x)   (logaritmo base 10)
+        """
+        arg_tex = self._print(expr.args[0])
+        return r"\log\left(%s\right)" % arg_tex
 
+    def _print_Mul(self, expr):
+        """
+        Detecta patrones del tipo log(x)/log(b) y los imprime como log_b(x).
+
+        Sympy convierte log(x, b) automáticamente a log(x)/log(b),
+        así que aquí reconstruimos esa notación para el LaTeX.
+        """
+        num, den = expr.as_numer_denom()
+
+        # ¿Es de la forma log(x)/log(b)?
+        if (
+            isinstance(num, sp.log) and
+            isinstance(den, sp.log) and
+            len(num.args) == 1 and
+            len(den.args) == 1
+        ):
+            x_arg = num.args[0]
+            base_arg = den.args[0]
+            x_tex = self._print(x_arg)
+            base_tex = self._print(base_arg)
+            return r"\log_{%s}\left(%s\right)" % (base_tex, x_tex)
+
+        # En cualquier otro caso, usamos el comportamiento normal
+        return super()._print_Mul(expr)
 def custom_latex(expr) -> str:
     """Usa el printer personalizado para generar LaTeX."""
     return CustomLatexPrinter().doprint(expr)
+
+def convert_log_bases(s: str) -> str:
+    """
+    Convierte la notación del USUARIO a la notación que Sympy entiende:
+    - ln(x)        -> se deja igual (Sympy lo toma como log(x) natural)
+    - log(x)       -> log10(x)     (logaritmo base 10)
+    - log(x, b)    -> log(x, b)    (logaritmo base b, cualquier b)
+    """
+    out = []
+    i = 0
+    L = len(s)
+
+    while i < L:
+        # Buscamos 'log('
+        if s.startswith('log(', i):
+            # Encontrar el paréntesis que cierra este log(...)
+            j = i + 4  # después de 'log('
+            depth = 1
+            while j < L and depth > 0:
+                c = s[j]
+                if c == '(':
+                    depth += 1
+                elif c == ')':
+                    depth -= 1
+                j += 1
+
+            # contenido dentro de log( ... )
+            inner = s[i+4:j-1]
+
+            # ¿hay coma de nivel superior? -> log(x, base)
+            # Ejemplos: log(x,2), log(2*x, 10)
+            if ',' in inner:
+                # lo dejamos como log(x,base)
+                out.append('log(' + inner + ')')
+            else:
+                # log(x) sin base explícita -> log10(x)
+                out.append('log10(' + inner + ')')
+
+            i = j
+            continue
+
+        # Cualquier otro carácter pasa tal cual
+        out.append(s[i])
+        i += 1
+
+    return ''.join(out)
 
 # ============================================================
 #   CALCULADORA CIENTÍFICA (teclado)
@@ -246,6 +321,7 @@ class CalculadoraCientificaFrame(ctk.CTkFrame):
             return ''.join(out)
 
         f = _convert_sqrt_with_index(f)
+        f = convert_log_bases(f)
 
         # ---------------------------
         # 4) Coma decimal entre dígitos -> punto
@@ -631,12 +707,8 @@ class AppMetodosNumericos(BaseApp):
             )
             self.label_resultado.config(text="Error: no se pudo completar el cálculo.")
 
-    # ------------------------------------------------------------
+       # ------------------------------------------------------------
     def _on_ecuacion_change(self, event):
-        """
-        Lee el texto EXACTO del input, lo normaliza SOLO para parsear (sin modificar el input),
-        y si es válido, muestra el render tipografiado; si no, muestra aviso.
-        """
         texto_usuario = self.entry_ecuacion_widget.get().strip()
 
         if not texto_usuario:
@@ -653,13 +725,13 @@ class AppMetodosNumericos(BaseApp):
 
         try:
             expr = sp.sympify(ecuacion_parseable)
-            # USAMOS EL PRINTER PERSONALIZADO
             tex = custom_latex(expr)
             self.lbl_ok.config(text="✓ Ecuación válida", bg="#198754")
             self._render_preview(tex)
         except Exception:
             self.lbl_ok.config(text="⚠ Ecuación no válida", bg="#C27C0E")
             self._render_preview(None)
+
 
     def _render_preview(self, tex_or_none: str | None):
         """
@@ -670,8 +742,12 @@ class AppMetodosNumericos(BaseApp):
         self._ax.axis("off")
 
         if tex_or_none:
-            self._ax.text(0.01, 0.5, f"${tex_or_none}$",
-                          va="center", ha="left", fontsize=16)
-            self._fig.subplots_adjust(left=0.02, right=0.98, top=0.95, bottom=0.05)
+            self._ax.text(
+                0.01, 0.5, f"${tex_or_none}$",
+                va="center", ha="left", fontsize=16
+            )
+            self._fig.subplots_adjust(
+                left=0.02, right=0.98, top=0.95, bottom=0.05
+            )
 
         self._canvas_preview.draw_idle()
