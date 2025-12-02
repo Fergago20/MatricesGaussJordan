@@ -24,7 +24,7 @@ from soporte.base_app import BaseApp
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from sympy.printing.latex import LatexPrinter
-
+from ui.ayuda_entrada import VentanaAyudaEntrada
 class CustomLatexPrinter(LatexPrinter):
 
     def _print_log(self, expr):
@@ -594,13 +594,24 @@ class AppMetodosNumericos(BaseApp):
         self._on_ecuacion_change(None)
 
         # FILA 2: Barra inferior
+                # ==== FILA 2: Barra inferior ====
         barra_inf = tk.Frame(raiz, bg=MN_FONDO)
         barra_inf.grid(row=2, column=0, sticky="ew", pady=(6, 0))
+
         tk.Button(
-            barra_inf, text="← Volver al menú",
+            barra_inf,
+            text="← Volver al menú",
             command=self._volver_al_menu,
             **estilo_btn
         ).pack(side="left", padx=5)
+
+        tk.Button(
+            barra_inf,
+            text="Ayuda",
+            command=lambda: VentanaAyudaEntrada(self),
+            **estilo_btn
+        ).pack(side="right", padx=5)
+
 
     # ------------------------------------------------------------
     def _configurar_tabla(self, metodo: str):
