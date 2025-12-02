@@ -53,7 +53,7 @@ def mostrar_menu():
 
     BotonCard(
         fila,
-        "Resolución de Sistemas de Ecuaciones",
+        "Resolución\nSistemas de Ecuaciones",
         img_resolver,
         lambda: abrir_modulo(AppResolverSistemas)
     ).grid(row=0, column=0, padx=28, pady=8)
@@ -122,7 +122,7 @@ def abrir_submenu_metodos(root):
     descripcion = tk.Label(
         centro,
         text="Selecciona el método numérico que deseas utilizar. "
-             "Cada método permite aproximar raíces de ecuaciones aplicando técnicas distintas.",
+             "\nCada método permite aproximar raíces de ecuaciones aplicando técnicas distintas.",
         fg=TEXTO_BLANCO,
         bg=FONDO_MENU,
         font=FUENTE_SUBTITULO,
@@ -142,7 +142,7 @@ def abrir_submenu_metodos(root):
     # Botón 1: Bisección y Falsa Posición
     BotonCard(
         fila_botones,
-        "Método de Bisección/Falsa Posición",
+        "Bisección\nFalsa Posición",
         img_bfp,
         lambda: abrir_biseccion(root, sub),
         color_fondo="#BADFF9"
@@ -151,7 +151,7 @@ def abrir_submenu_metodos(root):
     # Botón 2: Newton-Raphson
     BotonCard(
         fila_botones,
-        "Método de Newton-Raphson/Secante",
+        "Newton-Raphson\nSecante",
         img_nr,
         lambda: abrir_newton(root, sub),
         color_fondo="#C7EAFD"
