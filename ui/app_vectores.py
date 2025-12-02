@@ -21,7 +21,7 @@ class AppIndependenciaLineal(tk.Toplevel):
 
     def __init__(self, toplevel_parent=None, on_volver=None):
         super().__init__(master=toplevel_parent)
-        self.title("Independencia Lineal")
+        self.title("Dependencia de Vectores")
         self.configure(bg=GAUSS_FONDO)
         preparar_ventana(self, usar_maximizada=True)
 
