@@ -29,6 +29,7 @@ from ui.ayuda_entrada import VentanaAyudaEntrada
 # ============================================================
 
 class CustomLatexPrinter(LatexPrinter):
+
     def _print_log(self, expr):
         """
         log(x)        -> ln(x)        (logaritmo natural)
@@ -77,6 +78,7 @@ class CustomLatexPrinter(LatexPrinter):
 
         # En cualquier otro caso, usamos el comportamiento normal
         return super()._print_Mul(expr)
+    
 def custom_latex(expr) -> str:
     """Usa el printer personalizado para generar LaTeX."""
     return CustomLatexPrinter().doprint(expr)
@@ -126,10 +128,6 @@ def convert_log_bases(s: str) -> str:
         i += 1
 
     return ''.join(out)
-
-# ============================================================
-#   CALCULADORA CIENTÍFICA (teclado)
-# ============================================================
 
 x = symbols('x')
 
@@ -251,7 +249,6 @@ class CalculadoraCientificaFrame(ctk.CTkFrame):
              .replace('sen', 'sin')
              .replace('^', '**')
              .replace('÷', '/')
-             .replace('ln', 'log')  # <-- ln(x) se convierte a log(x) para SymPy
              )
 
         # ---------------------------

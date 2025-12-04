@@ -25,6 +25,7 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from sympy.printing.latex import LatexPrinter
 from ui.ayuda_entrada import VentanaAyudaEntrada
+
 class CustomLatexPrinter(LatexPrinter):
 
     def _print_log(self, expr):
